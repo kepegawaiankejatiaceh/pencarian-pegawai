@@ -108,11 +108,10 @@
     <div class="collapse-header" onclick="toggleCollapse('gsheetSettings')">🔗 Sumber Data Otomatis (Google Sheets) ▼</div>
     <div class="collapse-content" id="gsheetSettings">
         <div class="info-box" style="font-size:0.85em; text-align:left;">
-            <b>Cara pakai (sekali setting, seterusnya otomatis):</b><br>
-            1. Simpan/import data Excel pegawai ke Google Sheets.<br>
-            2. Klik <b>Share/Bagikan</b> pada sheet tersebut → ubah akses menjadi <b>"Anyone with the link" (Viewer)</b>.<br>
-            3. Salin link sheet-nya (link biasa dari address bar, atau tombol Share), lalu tempel di kolom bawah ini dan klik <b>Simpan & Muat</b>.<br>
-            4. Setelah itu, setiap aplikasi ini dibuka (oleh siapa saja), data akan otomatis termuat dari Google Sheets tersebut — admin cukup <b>Import</b> file Excel baru ke Google Sheets yang sama untuk memperbarui data, tanpa perlu upload ulang ke aplikasi.
+            ✅ Aplikasi ini sudah terhubung ke Google Sheets data pegawai Kejaksaan Tinggi Aceh secara bawaan.
+            Data otomatis termuat setiap aplikasi dibuka, tanpa perlu setting apapun.<br><br>
+            <b>Untuk admin: cara memperbarui data</b> — buka Google Sheets tersebut, lalu <b>File → Import → Replace current sheet</b> dengan file Excel terbaru. Semua orang yang membuka aplikasi ini akan otomatis melihat data terbaru.<br><br>
+            <b>Ingin memakai sumber data lain (khusus perangkat ini saja)?</b> Tempel link Google Sheets lain di kolom di bawah (pastikan sudah di-share "Anyone with the link"), lalu klik Simpan & Muat. Klik "Hapus Link" untuk kembali ke sumber data bawaan.
         </div>
         <label>Link Google Sheets: </label>
         <input type="text" id="gsheetUrlInput" placeholder="Tempel link Google Sheets di sini..." style="width:420px; padding:8px;">
@@ -246,6 +245,11 @@ let selectedPegawai = [];
 let allHeaders = [];
 let satkerList = [];
 let lastProcessDate = "";
+
+// Link Google Sheets bawaan aplikasi (data pegawai Kejaksaan Tinggi Aceh).
+// Semua orang yang membuka aplikasi ini otomatis memuat data dari sini,
+// kecuali mereka mengganti link-nya sendiri lewat panel "Sumber Data Otomatis" di browsernya masing-masing.
+const DEFAULT_GSHEET_URL = "https://docs.google.com/spreadsheets/d/1W0Q5ciBSGLmVgEwqwI-wLyr5zb3a9jeqW2pN5qqTV8Y/edit?usp=drive_link";
 
 // --- Parsing NIP/NRP ---
 function parseNipNrp(raw) {
@@ -1560,16 +1564,17 @@ function saveAndLoadGSheet() {
 }
 
 function clearGSheetSource() {
-    gsheetCsvUrl = "";
+    gsheetCsvUrl = DEFAULT_GSHEET_URL;
     localStorage.removeItem('gsheetCsvUrl');
     let input = document.getElementById('gsheetUrlInput');
-    if (input) input.value = "";
-    setGSheetStatus('Link Google Sheets dihapus. Sumber data kembali ke upload Excel manual.', '#555');
+    if (input) input.value = gsheetCsvUrl;
+    setGSheetStatus('Link kustom dihapus. Direset ke link Google Sheets bawaan aplikasi.', '#555');
+    loadFromGSheet(false);
 }
 
 window.onload = () => {
     // Muat pengaturan link Google Sheets (jika ada)
-    gsheetCsvUrl = localStorage.getItem('gsheetCsvUrl') || "";
+    gsheetCsvUrl = localStorage.getItem('gsheetCsvUrl') || DEFAULT_GSHEET_URL;
     let gsheetInput = document.getElementById('gsheetUrlInput');
     if (gsheetInput) gsheetInput.value = gsheetCsvUrl;
 
