@@ -1521,8 +1521,13 @@ function normalizeGSheetCsvUrl(url) {
         if (!m) return url; // format tidak dikenali (mungkin sudah berupa link CSV), pakai apa adanya
         let id = m[1];
         let gidMatch = url.match(/[#&?]gid=(\d+)/);
-        let gid = gidMatch ? gidMatch[1] : '0';
-        return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+        // Hanya sertakan &gid=... jika memang ada di link asli. Jika tidak ada,
+        // biarkan Google memilih sheet/tab default secara otomatis -- memaksa gid=0
+        // bisa menyebabkan HTTP 400 kalau tab pertama pada spreadsheet tersebut
+        // ternyata bukan ber-gid 0 (mis. karena sheet default pernah dihapus/diganti).
+        let csvUrl = `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`;
+        if (gidMatch) csvUrl += `&gid=${gidMatch[1]}`;
+        return csvUrl;
     } catch (e) {
         return url;
     }
@@ -1538,7 +1543,13 @@ function loadFromGSheet(manual) {
 
     fetch(csvUrl)
         .then(res => {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.ok) {
+                let hint = '';
+                if (res.status === 400) hint = ' Kemungkinan link/ID sheet tidak valid.';
+                else if (res.status === 401 || res.status === 403) hint = ' Sheet belum di-share publik — buka Share, ubah ke "Anyone with the link" (Viewer).';
+                else if (res.status === 404) hint = ' Sheet tidak ditemukan, cek kembali link-nya.';
+                throw new Error('HTTP ' + res.status + '.' + hint);
+            }
             return res.text();
         })
         .then(csvText => {
@@ -1551,7 +1562,9 @@ function loadFromGSheet(manual) {
             if (manual) alert('Data berhasil dimuat dari Google Sheets!');
         })
         .catch(err => {
-            setGSheetStatus('⚠️ Gagal memuat dari Google Sheets (' + err.message + '). Menampilkan data tersimpan terakhir.', '#c00');
+            let msg = err.message || 'Tidak diketahui';
+            if (/Failed to fetch/i.test(msg)) msg = 'Gagal terhubung (kemungkinan diblokir CORS/jaringan, atau sheet belum publik).';
+            setGSheetStatus('⚠️ Gagal memuat dari Google Sheets (' + msg + '). Menampilkan data tersimpan terakhir.', '#c00');
         });
 }
 
