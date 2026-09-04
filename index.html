@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Pencarian Pegawai V5 - Dengan Penyimpanan Pengaturan Kolom</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+    /* --- Gaya Dasar --- */
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; padding-top: 80px; }
+    .container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    
+    /* --- Dropdown Pencarian --- */
+    .dropdown { border: 1px solid #ccc; max-height: 150px; overflow-y: auto; position: absolute; background: #fff; z-index: 10; width: 400px; }
+    .dropdown div { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .dropdown div:hover { background-color: #f0f0f0; }
+    
+    /* --- Tombol & Form --- */
+    button { background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; margin-right: 5px; }
+    button:hover { background: #0056b3; }
+    
+    /* --- Tabel (General) --- */
+    table { border-collapse: collapse; width: 100%; background: white; margin-top: 15px; font-size: 12px; }
+    table, th, td { border: 1px solid #333; }
+    th, td { padding: 6px; vertical-align: middle; }
+    
+    /* 1. Header Tabel: Selalu Rata Tengah */
+    th { background: #2c7be5; color: black; text-align: center !important; }
+
+    /* 2. Isi Tabel: Default Rata Tengah (Untuk Angka & Golongan) */
+    td { text-align: center; }
+
+    /* 3. Pengecualian: Rata Kiri Untuk Kolom Teks Panjang */
+    #rekapTable table td:nth-child(2),         /* Satker di Menu 1 */
+    #rekapGolonganTable table td:nth-child(1),    /* Satker di Menu 2 */
+    .jabatan-name {                            /* Nama Jabatan di Menu 3 */
+        text-align: center;
+    }
+
+    /* --- Warna Baris Rekapitulasi --- */
+    .row-total { background: #e2f0d9; font-weight: bold; }
+    .grand-total { background: #ffd966; font-weight: bold; }
+    .total-row { background: #34495e !important; color: white; font-size: 1.1em; font-weight: bold; }
+    
+    /* --- Navigasi & Menu --- */
+    #topBar { position: fixed; top: 15px; right: 20px; z-index: 1000; }
+    #subMenuDropdown { position: fixed; top: 55px; right: 20px; width: 250px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: none; z-index: 1000; overflow: hidden; }
+    .subMenuButton { width: 100%; padding: 12px; text-align: left; border: none; background: #444; color: white; cursor: pointer; border-bottom: 1px solid #555; }
+    .subMenuButton:hover { background: #555; }
+
+    /* --- Mode & Pengaturan Kolom --- */
+    .mode-section { display: none; }
+    .collapse-header { cursor: pointer; padding: 10px; background: #e9ecef; border-radius: 5px; margin-bottom: 8px; font-weight: bold; }
+    .collapse-content { display: none; padding: 10px; border: 1px solid #ddd; margin-bottom: 10px; }
+    .draggable-item { padding: 4px; margin: 2px 0; background: #fafafa; border: 1px solid #ccc; display: flex; align-items: center; gap: 8px; cursor: grab; }
+    .draggable-list { min-height: 50px; }
+    
+    /* --- Komponen Visual Rekap Jabatan --- */
+    .section-header { background-color: #2c3e50 !important; color: #fff; font-weight: bold; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; }
+    .subtotal-badge { background: #e67e22; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; }
+    .info-box { background: #fff; padding: 10px; border-left: 4px solid #0056b3; margin: 10px 0; font-size: 0.9em; }
+    
+    /* --- Detail & List Nama --- */
+    details summary { font-weight: bold; color: #0056b3; cursor: pointer; text-align: left; }
+    details ul { margin: 10px 0 0 20px; padding-left: 20px; list-style-type: decimal; font-size: 0.9em; text-align: left; }
+    .satker-subheader { margin: 12px 0 0 20px; padding: 3px 10px; background: #eef4fb; color: #0056b3; font-weight: bold; font-size: 0.85em; border-left: 3px solid #0056b3; border-radius: 3px; text-align: left; }
+    .satker-subheader:first-of-type { margin-top: 8px; }
+    .filter-container { background: #d4edda; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; }
+
+    /* --- Tombol Download --- */
+    .download-buttons { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-word { background: #2b579a; }
+    .btn-word:hover { background: #1e3f73; }
+    .btn-excel { background: #217346; }
+    .btn-excel:hover { background: #17532f; }
+    .btn-pdf { background: #c0392b; }
+    .btn-pdf:hover { background: #962d21; }
+</style>
+</head>
+<body>
+
+<div id="topBar">
+    <button onclick="toggleSubMenu()">MENU REKAPITULASI ▼</button>
+</div>
+
+<div id="subMenuDropdown">
+    <button class="subMenuButton" onclick="toggleSubMenuSection('menu1')">Rekap Per Jenis Kelamin</button>
+    <button class="subMenuButton" onclick="toggleSubMenuSection('menu2')">Rekap Per Golongan</button>
+    <button class="subMenuButton" onclick="toggleSubMenuSection('menu3')">Rekap Jabatan & Eselon</button>
+    <button class="subMenuButton" onclick="toggleSubMenuSection('menu4')">Rekap Pendidikan</button>
+    <button class="subMenuButton" onclick="toggleSubMenuSection('menu6')">Rekap Eselon Kosong</button>
+    <button class="subMenuButton" onclick="toggleSubMenuSection('menu5')">Rekap Jabatan Kosong</button>
+    <button class="subMenuButton" onclick="closeAllMenus()">Tutup Menu</button>
+</div>
+
+<h2>Pencarian Pegawai + Rekap Jabatan</h2>
+
+<div class="container">
+    <label>Database (Excel): </label>
+    <input type="file" id="fileInput" accept=".xlsx, .xls"><br><br>
+    <input type="text" id="searchInput" placeholder="Cari Nama atau NIP..." style="width: 400px; padding: 10px;">
+    <div class="dropdown" id="dropdown"></div>
+    <button onclick="addSelectedPegawai()">Tambahkan Ke Daftar</button>
+</div>
+
+<div class="container">
+    <div class="collapse-header" onclick="toggleCollapse('gsheetSettings')">🔗 Sumber Data Otomatis (Google Sheets) ▼</div>
+    <div class="collapse-content" id="gsheetSettings">
+        <div class="info-box" style="font-size:0.85em; text-align:left;">
+            <b>Cara pakai (sekali setting, seterusnya otomatis):</b><br>
+            1. Simpan/import data Excel pegawai ke Google Sheets.<br>
+            2. Klik <b>Share/Bagikan</b> pada sheet tersebut → ubah akses menjadi <b>"Anyone with the link" (Viewer)</b>.<br>
+            3. Salin link sheet-nya (link biasa dari address bar, atau tombol Share), lalu tempel di kolom bawah ini dan klik <b>Simpan & Muat</b>.<br>
+            4. Setelah itu, setiap aplikasi ini dibuka (oleh siapa saja), data akan otomatis termuat dari Google Sheets tersebut — admin cukup <b>Import</b> file Excel baru ke Google Sheets yang sama untuk memperbarui data, tanpa perlu upload ulang ke aplikasi.
+        </div>
+        <label>Link Google Sheets: </label>
+        <input type="text" id="gsheetUrlInput" placeholder="Tempel link Google Sheets di sini..." style="width:420px; padding:8px;">
+        <button onclick="saveAndLoadGSheet()">💾 Simpan & Muat</button>
+        <button onclick="loadFromGSheet(true)">🔄 Muat Ulang Sekarang</button>
+        <button onclick="clearGSheetSource()">✖ Hapus Link</button>
+        <div id="gsheetStatus" style="font-size:0.85em; margin-top:8px; color:#555;"></div>
+    </div>
+</div>
+
+<div class="info-box" id="uploadInfoMenu3" style="display:none;">
+        <b>📅 Data terakhir diproses:</b> <span id="dateDisplayMenu3">-</span>
+    </div>
+
+<div class="container">
+    <button onclick="showMode('list')">Mode Daftar</button>
+    <button onclick="showMode('table')">Mode Tabel</button>
+    <label style="margin-left:15px;"><input type="checkbox" id="boldNamaToggle" onchange="refreshView()"> <b>Bold Nama</b></label>
+</div>
+
+<div class="container mode-section" id="listMode">
+    <div class="collapse-header" onclick="toggleCollapse('listSettings')">Pengaturan Kolom Daftar ▼</div>
+    <div class="collapse-content" id="listSettings"><div id="listOrder" class="draggable-list"></div></div>
+    <div id="listView"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar', 'Daftar Pegawai')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar', 'Daftar Pegawai')">⬇ PDF</button>
+    </div>
+    <table id="listExportTable" style="display:none"><thead><tr id="listExportHeader"></tr></thead><tbody id="listExportBody"></tbody></table>
+</div>
+
+<div class="container mode-section" id="tableMode">
+    <div class="collapse-header" onclick="toggleCollapse('tableSettings')">Pengaturan Kolom Tabel ▼</div>
+    <div class="collapse-content" id="tableSettings">
+        <label>Jumlah Kolom: <input type="number" id="tableColumns" value="2" min="1" max="6" onchange="generateTableSelectors()"></label>
+        <div id="tableSelectors" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+    </div>
+    <div id="tableView" style="overflow-x:auto;">
+        <table><thead><tr id="tableHeader"><th>No</th></tr></thead><tbody id="tableBody"></tbody></table>
+    </div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel', 'Daftar Pegawai')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel', 'Daftar Pegawai')">⬇ PDF</button>
+    </div>
+</div>
+
+<!-- Menu Rekapitulasi -->
+<div class="container" id="menu1" style="display:none;">
+    <h3>Rekapitulasi Jenis Kelamin (Per Satker)</h3>
+    <div id="rekapTable" style="overflow-x:auto;"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin', 'Rekapitulasi Jenis Kelamin')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin', 'Rekapitulasi Jenis Kelamin')">⬇ PDF</button>
+    </div>
+</div>
+
+<div class="container" id="menu2" style="display:none;">
+    <h3>Rekapitulasi Per Golongan (Jaksa & TU)</h3>
+    <div id="rekapGolonganTable" style="overflow-x:auto;"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#rekapGolonganTable table', 'Rekap_Golongan', 'Rekapitulasi Per Golongan')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapGolonganTable table', 'Rekap_Golongan')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapGolonganTable table', 'Rekap_Golongan', 'Rekapitulasi Per Golongan')">⬇ PDF</button>
+    </div>
+</div>
+
+<div class="container" id="menu3" style="display:none;">
+    <h3>Rekapitulasi Jabatan & Eselon</h3>
+    
+    <div id="filterArea" class="filter-container" style="display:none;">
+        <strong>🔍 Filter Berdasarkan Satker:</strong>
+        <select id="satkerDropdown" onchange="applyJabatanFilter()" style="max-width: 400px;">
+            <option value="ALL">-- SEMUA SATKER (GABUNGAN) --</option>
+        </select>
+    </div>
+    <div id="resultsArea" style="margin-top:15px;"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon', 'Rekapitulasi Jabatan & Eselon')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon', 'Rekapitulasi Jabatan & Eselon')">⬇ PDF</button>
+    </div>
+</div>
+
+<div class="container" id="menu4" style="display:none;">
+    <h3>Rekapitulasi Pendidikan (Per Satker)</h3>
+    <div class="info-box" style="font-size:0.85em;">
+        ℹ️ Jenjang pendidikan dideteksi otomatis dari gelar pada kolom Nama (mis. S.H., SH, S.Kom, M.H., MH, Dr., dr., A.Md, dsb).
+        Pegawai tanpa gelar akademik dikelompokkan sebagai <b>SLTA</b>.
+    </div>
+    <div id="rekapPendidikanTable" style="overflow-x:auto;"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan', 'Rekapitulasi Pendidikan')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan', 'Rekapitulasi Pendidikan')">⬇ PDF</button>
+    </div>
+</div>
+
+<div class="container" id="menu6" style="display:none;">
+    <h3>Rekapitulasi Eselon Kosong (Per Satker)</h3>
+    <div class="info-box" style="font-size:0.85em;">
+        ℹ️ Menampilkan jumlah jabatan struktural yang terisi dan kosong pada tiap tingkat Eselon (II/III/IV/V), berdasarkan kolom Eselon dan Jabatan pada data pegawai. Pegawai berstatus "Dikaryakan" tidak dihitung.
+    </div>
+    <div id="rekapEselonKosongTable" style="overflow-x:auto;"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong', 'Rekapitulasi Eselon Kosong')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong', 'Rekapitulasi Eselon Kosong')">⬇ PDF</button>
+    </div>
+</div>
+
+<div class="container" id="menu5" style="display:none;">
+    <h3>Rekapitulasi Jabatan Kosong</h3>
+    <div class="info-box" style="font-size:0.85em;">
+        ℹ️ Daftar jabatan struktural yang wajib ada berdasarkan tipe satuan kerja (Kejaksaan Tinggi / Kejaksaan Negeri Tipe A / Tipe B / Cabang Kejaksaan Negeri) namun belum terisi oleh pegawai manapun.
+    </div>
+    <div id="rekapJabatanKosongTable" style="overflow-x:auto;"></div>
+    <div class="download-buttons">
+        <button class="btn-word" onclick="downloadWordFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong', 'Rekapitulasi Jabatan Kosong')">⬇ Word</button>
+        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong')">⬇ Excel</button>
+        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong', 'Rekapitulasi Jabatan Kosong')">⬇ PDF</button>
+    </div>
+</div>
+
+<script>
+// === DATA GLOBAL ===
+let pegawai = [];
+let selectedPegawai = [];
+let allHeaders = [];
+let satkerList = [];
+let lastProcessDate = "";
+
+// --- Parsing NIP/NRP ---
+function parseNipNrp(raw) {
+    let clean = (raw || "").toString().replace(/'/g, '').replace(/\s/g, '').trim();
+    let parts = clean.split('/');
+    let nip = parts[0] || '';
+    let nrp = parts[1] || '';
+    return { nip, nrp };
+}
+
+// --- Jenis Kelamin ---
+function parseData(p) {
+    let nip = (p.NIP || "").toString().trim();
+    if (!nip || nip.length < 15) {
+        return { jk: "L" }; // default aman jika NIP bermasalah
+    }
+    let jkChar = nip.charAt(14);
+    let jk = (jkChar === "2" || jkChar === "4") ? "P" : "L";
+    return { jk };
+}
+
+function extractGolongan(txt) {
+    if (!txt) return "Lainnya";
+    let s = txt.toString();
+    let m = s.match(/\(\s*(I|II|III|IV|X)\s*(?:\/\s*([a-d]))?\s*\)/i);
+    if (m) return m[1].toUpperCase() + (m[2] ? "/" + m[2].toLowerCase() : "");
+    m = s.match(/\b(I|II|III|IV|X)\s*\/\s*([a-d])\b/i);
+    if (m) return m[1].toUpperCase() + "/" + m[2].toLowerCase();
+    return "Lainnya";
+}
+
+function findKey(keys) {
+    return allHeaders.find(h => keys.some(k => h.toLowerCase().includes(k.toLowerCase()))) || keys[0];
+}
+
+// === UI & MENU ===
+function toggleSubMenu() {
+    let m = document.getElementById("subMenuDropdown");
+    m.style.display = (m.style.display === "block") ? "none" : "block";
+}
+
+function closeAllMenus() {
+    document.getElementById("subMenuDropdown").style.display = "none";
+    document.querySelectorAll('.container[id^="menu"]').forEach(el => el.style.display = "none");
+}
+
+function toggleSubMenuSection(id) {
+    closeAllMenus();
+    document.getElementById(id).style.display = "block";
+    if(id === 'menu1') generateRekapJK();
+    if(id === 'menu2') generateRekapGol();
+    if(id === 'menu3') generateRekapJabatan();
+    if(id === 'menu4') generateRekapPendidikan();
+    if(id === 'menu6') generateRekapEselonKosong();
+    if(id === 'menu5') generateRekapJabatanKosong();
+}
+
+function toggleCollapse(id) {
+    let el = document.getElementById(id);
+    el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+}
+
+function showMode(m) {
+    document.querySelectorAll('.mode-section').forEach(s => s.style.display = 'none');
+    document.getElementById(m + 'Mode').style.display = 'block';
+    refreshView();
+}
+
+function refreshView() { renderList(); renderTable(); }
+
+// === SEARCH & ADD ===
+document.getElementById('searchInput').oninput = function() {
+    let val = this.value.toLowerCase();
+    let drop = document.getElementById('dropdown');
+    drop.innerHTML = '';
+    if(!val) return;
+
+    // Menentukan key (header) untuk Nama dan Jabatan secara dinamis
+    let hNama = findKey(['Nama']);
+    let hJabatan = findKey(['Jabatan']);
+
+    pegawai.filter(p => 
+        (p[hNama] && p[hNama].toString().toLowerCase().includes(val)) || // Cari Nama
+        (p.NIP && p.NIP.toLowerCase().includes(val)) ||                  // Cari NIP
+        (p[hJabatan] && p[hJabatan].toString().toLowerCase().includes(val)) // Cari Jabatan
+    ).slice(0, 10).forEach(p => {
+        let div = document.createElement('div');
+        // Menampilkan info lebih lengkap di dropdown (Nama | NIP | Jabatan)
+        div.textContent = `${p[hNama]} | NIP. ${p.NIP} | ${p[hJabatan] || ''}`;
+        div.onclick = () => {
+            document.getElementById('searchInput').value = p[hNama];
+            document.getElementById('searchInput').dataset.selected = JSON.stringify(p);
+            drop.innerHTML = '';
+        };
+        drop.appendChild(div);
+    });
+};
+
+function addSelectedPegawai() {
+    let raw = document.getElementById('searchInput').dataset.selected;
+    if(!raw) return;
+    let p = JSON.parse(raw);
+    selectedPegawai.push(p);
+    refreshView();
+    document.getElementById('searchInput').value = '';
+}
+
+// === RENDER DAFTAR & TABEL ===
+function renderList() {
+    let order = Array.from(document.querySelectorAll('#listOrder .draggable-item'))
+        .filter(i => i.querySelector('input').checked).map(i => i.dataset.header);
+    let view = document.getElementById('listView'); view.innerHTML = '';
+    let bold = document.getElementById('boldNamaToggle').checked;
+
+    // Tabel tersembunyi untuk keperluan download (Word/Excel/PDF)
+    let expHead = document.getElementById('listExportHeader');
+    let expBody = document.getElementById('listExportBody');
+    expHead.innerHTML = '<th>No</th>' + order.map(h => `<th>${h}</th>`).join('');
+    expBody.innerHTML = '';
+
+    selectedPegawai.forEach((p, i) => {
+        let text = order.map(h => {
+            let val = p[h] || '';
+            if(h === 'NIP') return val ? `NIP. ${val}` : '';
+            if(h === 'NRP') return val ? `NRP. ${val}` : '';
+            if(bold && h.toLowerCase().includes('nama')) return `<strong>${val}</strong>`;
+            return val;
+        }).filter(v => v !== '').join(', ');
+        view.innerHTML += `<div>${i+1}. ${text}</div>`;
+
+        let rowCells = order.map(h => {
+            let val = p[h] || '';
+            if(h === 'NIP') return val ? `NIP. ${val}` : '';
+            if(h === 'NRP') return val ? `NRP. ${val}` : '';
+            return val;
+        });
+        expBody.innerHTML += `<tr><td>${i+1}</td>${rowCells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+    });
+}
+
+function renderTable() {
+    let cols = [];
+    document.querySelectorAll('#tableSelectors .draggable-list').forEach(list => {
+        cols.push(Array.from(list.querySelectorAll('.draggable-item'))
+            .filter(i => i.querySelector('input').checked).map(i => i.dataset.header));
+    });
+    let head = document.getElementById('tableHeader');
+    let body = document.getElementById('tableBody');
+    let bold = document.getElementById('boldNamaToggle').checked;
+    head.innerHTML = '<th>No</th>';
+    cols.forEach((cSet, i) => {
+        let label = cSet.length ? cSet.join(' / ') : `Kolom ${i+1}`;
+        head.innerHTML += `<th>${label}</th>`;
+    });
+    body.innerHTML = '';
+    selectedPegawai.forEach((p, i) => {
+        let row = `<td>${i+1}</td>`;
+        cols.forEach((cSet, colIdx) => {
+            let cell = cSet.map(h => {
+                let val = p[h] || '';
+                if(h === 'NIP') return val ? (colIdx === 0 ? `NIP. ${val}` : val) : '';
+                if(h === 'NRP') return val ? (colIdx === 0 ? `NRP. ${val}` : val) : '';
+                if(bold && h.toLowerCase().includes('nama')) return `<strong>${val}</strong>`;
+                return val;
+            }).filter(v => v !== '').join('<br>');
+            row += `<td>${cell}</td>`;
+        });
+        body.innerHTML += `<tr>${row}</tr>`;
+    });
+}
+
+// === REKAP JK ===
+function generateRekapJK() {
+    let hSat = findKey(['Satker']);
+    let hGol = findKey(['Gol/Pangkat']);
+    let rekap = {};
+    pegawai.forEach(p => {
+        let s = p[hSat] || "Lainnya";
+        if(!rekap[s]) rekap[s] = { l:0, p:0, jl:0, jp:0, tl:0, tp:0 };
+        let info = parseData(p);
+        let isJ = (p[hGol]||"").toLowerCase().includes("jaksa");
+        if(info.jk === "L") { rekap[s].l++; if(isJ) rekap[s].jl++; else rekap[s].tl++; }
+        else { rekap[s].p++; if(isJ) rekap[s].jp++; else rekap[s].tp++; }
+    });
+    let sum = { l:0, p:0, jl:0, jp:0, tl:0, tp:0, total:0 };
+    let html = `<table><tr><th>No</th><th>Satuan Kerja</th><th>Laki-laki</th><th>Perempuan</th><th>Jaksa Lk</th><th>Jaksa Pr</th><th>TU Lk</th><th>TU Pr</th><th class="row-total">Total</th></tr>`;
+    let i = 1;
+    for(let s in rekap) {
+        let r = rekap[s]; let rowTotal = r.l + r.p;
+        html += `<tr><td>${i++}</td><td style="text-align:left">${s}</td><td>${r.l}</td><td>${r.p}</td><td>${r.jl}</td><td>${r.jp}</td><td>${r.tl}</td><td>${r.tp}</td><td class="row-total">${rowTotal}</td></tr>`;
+        sum.l += r.l; sum.p += r.p; sum.jl += r.jl; sum.jp += r.jp; sum.tl += r.tl; sum.tp += r.tp; sum.total += rowTotal;
+    }
+    html += `<tr class="grand-total"><td colspan="2">TOTAL KESELURUHAN</td><td>${sum.l}</td><td>${sum.p}</td><td>${sum.jl}</td><td>${sum.jp}</td><td>${sum.tl}</td><td>${sum.tp}</td><td>${sum.total}</td></tr></table>`;
+    document.getElementById("rekapTable").innerHTML = html;
+}
+
+// === REKAP GOLONGAN ===
+function generateRekapGol() {
+    let hGol = findKey(['Gol/Pangkat']);
+    let hSat = findKey(['Satker']);
+    let data = {};
+    
+    // Penambahan IV/d pada Jaksa
+    const gJaksa = ["IV/d", "IV/c", "IV/b", "IV/a", "III/d", "III/c", "III/b", "III/a"];
+    const gTU = ["IV/b", "IV/a", "III/d", "III/c", "III/b", "III/a", "II/d", "II/c", "II/b", "II/a", "I/d"];
+    
+    pegawai.forEach(p => {
+        let s = p[hSat] || "Lainnya";
+        if(!data[s]) data[s] = { jaksa: {}, tu: {}, tJ: 0, tT: 0 };
+        let raw = p[hGol] || "";
+        let isJ = raw.toLowerCase().includes("jaksa");
+        let g = extractGolongan(raw);
+        if(isJ) { 
+            data[s].jaksa[g] = (data[s].jaksa[g]||0)+1; 
+            data[s].tJ++; 
+        }
+        else { 
+            data[s].tu[g] = (data[s].tu[g]||0)+1; 
+            data[s].tT++; 
+        }
+    });
+
+    let html = `<table><tr><th rowspan="2">Satuan Kerja</th><th colspan="${gJaksa.length}">JAKSA</th><th rowspan="2" class="row-total">Total Jaksa</th><th colspan="${gTU.length}">TU</th><th rowspan="2" class="row-total">Total TU</th><th rowspan="2" class="grand-total">Total</th></tr><tr>`;
+    
+    // Header Kolom Golongan
+    html += gJaksa.map(g => `<th>${g}</th>`).join('') + gTU.map(g => `<th>${g}</th>`).join('') + `</tr>`;
+
+    let sumJ = Array(gJaksa.length).fill(0), sumT = Array(gTU.length).fill(0), grandJ = 0, grandT = 0;
+
+    for(let s in data) {
+        let r = data[s];
+        html += `<tr><td style="text-align:left">${s}</td>`;
+        
+        // Isi Data Jaksa (Termasuk IV/d)
+        gJaksa.forEach((g, idx) => { 
+    let c = r.jaksa[g]||0; 
+    // Pastikan TIDAK ADA style="text-align:left" di tag <td> berikut:
+    html += `<td>${c||'-'}</td>`; 
+    sumJ[idx]+=c; 
+});
+        
+        html += `<td class="row-total">${r.tJ}</td>`;
+        
+        // Isi Data TU
+        gTU.forEach((g, idx) => { 
+            let c = r.tu[g]||0; 
+            html += `<td>${c||'-'}</td>`; 
+            sumT[idx]+=c; 
+        });
+        
+        html += `<td class="row-total">${r.tT}</td><td class="grand-total">${r.tJ + r.tT}</td></tr>`;
+        grandJ += r.tJ; grandT += r.tT;
+    }
+    
+    // Baris Total Bawah
+    html += `<tr class="grand-total"><td>TOTAL</td>`;
+    html += sumJ.map(v => `<td>${v}</td>`).join('') + `<td class="row-total">${grandJ}</td>`;
+    html += sumT.map(v => `<td>${v}</td>`).join('') + `<td class="row-total">${grandT}</td><td>${grandJ + grandT}</td></tr></table>`;
+    
+    document.getElementById("rekapGolonganTable").innerHTML = html;
+}
+
+// === REKAP PENDIDIKAN ===
+// Urutan prioritas jenjang (semakin besar = semakin tinggi)
+const pendidikanRank = { S3: 5, S2: 4, D3: 3, S1: 2, SLTA: 1 };
+const pendidikanOrder = ["S3", "S2", "S1", "D3", "SLTA"];
+
+// Menentukan jenjang pendidikan dari SATU token gelar yang sudah dinormalisasi
+// (huruf saja, tanpa titik/spasi, huruf besar semua). Contoh: "S.H." / "SH" -> "SH"
+function tokenPendidikanLevel(tok) {
+    if (!tok) return null;
+
+    // Gelar lama setara S1 (Doktorandus/Doktoranda, Insinyur, Apoteker)
+    if (tok === "DRS" || tok === "DRA" || tok === "IR" || tok === "APT") return "S1";
+
+    // Gelar Doktor (S3) / Ph.D
+    if (tok === "DR" || tok === "PHD" || tok.startsWith("DOKTOR")) return "S3";
+
+    // Gelar Spesialis (Sp.A, Sp.OG, dst) -> setara S2
+    if (/^SP[A-Z]{0,6}$/.test(tok)) return "S2";
+
+    // Gelar Magister (M.H, M.Kn, M.Si, M.Kom, MM, dst) -> S2
+    if (/^M[A-Z]{1,8}$/.test(tok)) return "S2";
+
+    // Gelar Diploma III (A.Md, A.Md.Kep, A.Md.Kom, dst) -> D3
+    if (/^AMD[A-Z]{0,8}$/.test(tok)) return "D3";
+
+    // Gelar Sarjana (S.H, S.E, S.T, S.Kom, S.Pd, S.IP, S.Tr, dst) -> S1
+    if (/^S[A-Z]{1,10}$/.test(tok)) return "S1";
+
+    return null;
+}
+
+// Menentukan jenjang pendidikan tertinggi dari string Nama (termasuk gelar depan & belakang)
+// Mengadaptasi berbagai variasi penulisan gelar yang sama (mis. "SH" vs "S.H." vs "S,H")
+function extractJenjangPendidikan(namaRaw) {
+    if (!namaRaw) return "SLTA";
+    let raw = namaRaw.toString().trim();
+    if (!raw) return "SLTA";
+
+    let highest = null;
+    const upgrade = (lvl) => {
+        if (lvl && (!highest || pendidikanRank[lvl] > pendidikanRank[highest])) highest = lvl;
+    };
+
+    // --- Gelar di depan nama ---
+    // "Dr." (huruf D besar) = Doktor -> S3. "dr." (huruf d kecil) = dokter umum -> setara S1 (profesi).
+    if (/^(Prof\.?\s*)?Dr\.?\s+/.test(raw)) upgrade("S3");
+    else if (/^dr\.?\s+/.test(raw)) upgrade("S1");
+    if (/^(Drs\.?|Dra\.?)\s+/i.test(raw)) upgrade("S1");
+    if (/^Ir\.?\s+/.test(raw)) upgrade("S1");
+
+    // --- Gelar di belakang nama (setelah koma pertama) ---
+    let commaIdx = raw.indexOf(',');
+    if (commaIdx !== -1) {
+        let suffixPart = raw.slice(commaIdx + 1);
+        suffixPart.split(',').forEach(t => {
+            // Normalisasi: buang semua karakter selain huruf, lalu uppercase.
+            // Ini menyatukan variasi seperti "S.H." , "S,H", "SH", " s.h " menjadi "SH".
+            let norm = t.replace(/[^a-zA-Z]/g, '').toUpperCase();
+            upgrade(tokenPendidikanLevel(norm));
+        });
+    }
+
+    return highest || "SLTA";
+}
+
+function generateRekapPendidikan() {
+    if (pegawai.length === 0) {
+        document.getElementById("rekapPendidikanTable").innerHTML = "<p style='color:#c00'>Belum ada data yang diupload.</p>";
+        return;
+    }
+
+    let hNama = findKey(['Nama']);
+    let hSat = findKey(['Satker']);
+    let data = {};
+
+    pegawai.forEach(p => {
+        let s = p[hSat] || "Lainnya";
+        if (!data[s]) data[s] = { S3: 0, S2: 0, S1: 0, D3: 0, SLTA: 0 };
+        let jenjang = extractJenjangPendidikan(p[hNama]);
+        data[s][jenjang]++;
+    });
+
+    let html = `<table><tr><th>Satuan Kerja</th>${pendidikanOrder.map(j => `<th>${j}</th>`).join('')}<th class="grand-total">Total</th></tr>`;
+
+    let sums = { S3: 0, S2: 0, S1: 0, D3: 0, SLTA: 0 };
+    let grand = 0;
+
+    Object.keys(data).sort().forEach(s => {
+        let r = data[s];
+        let rowTotal = pendidikanOrder.reduce((acc, j) => acc + r[j], 0);
+        html += `<tr><td style="text-align:left">${s}</td>`;
+        pendidikanOrder.forEach(j => {
+            html += `<td>${r[j] || '-'}</td>`;
+            sums[j] += r[j];
+        });
+        html += `<td class="grand-total">${rowTotal}</td></tr>`;
+        grand += rowTotal;
+    });
+
+    html += `<tr class="grand-total"><td>TOTAL</td>`;
+    pendidikanOrder.forEach(j => { html += `<td>${sums[j]}</td>`; });
+    html += `<td>${grand}</td></tr></table>`;
+
+    document.getElementById("rekapPendidikanTable").innerHTML = html;
+}
+
+// === REKAP JABATAN ===
+const pelaksanaList = [
+    "Penelaah Penuntutan Dan Penegakan Hukum", "Penelaah Teknis Kebijakan",
+    "Operator Layanan Operasional", "Pengelola Penanganan Perkara",
+    "Petugas Barang Bukti", "Pemeriksa Forensik Digital",
+    "Pengolah Data Dan Informasi", "Penjaga Tahanan",
+    "Pengawal Yustisial", "Petugas Aset dan Barang Bukti", "Pranata Yustisial"
+];
+const eselonOrder = ["II/a", "II/b", "III/a", "III/b", "IV/a", "V/a"];
+
+function toTitleCase(str) {
+    if (!str) return "";
+    return str.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function cleanJabatanName(name) {
+    if (!name) return "Lain-lain";
+    let cleaned = name.split(/\bPada\b/i)[0];
+    const forbidden = ["Pelaksana", "Penyelia", "Pertama", "Pratama", "Ahli", "Muda", "Madya", "Jenjang", "Wilayah Kejaksaan Negeri", "Mahir", "Wilayah Kejaksaan Tinggi"];
+    forbidden.forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+        cleaned = cleaned.replace(regex, '');
+    });
+
+    let result = toTitleCase(cleaned.replace(/\s+/g, ' ').trim());
+
+    const kamusGabungan = {
+        "Anggaran Pendapatan Dan Belanja Negara": "Apbn",
+        "Pengelola Pengadaan Barang jasa": "Pengelola Pengadaan Barang/jasa",
+        "\\(Calon Jaksa \\)": "(Calon - Jaksa)",
+        "\\(Calon Jaksa\\)": "(Calon - Jaksa)",
+        "\\(Calon - Jaksa\\)": "(Calon - Jaksa)"
+    };
+
+    for (let teksLama in kamusGabungan) {
+        result = result.replace(new RegExp(teksLama, 'gi'), kamusGabungan[teksLama]);
+    }
+    return result.replace(/\s+/g, ' ').trim();
+}
+
+function generateRekapJabatan() {
+    if (pegawai.length === 0) {
+        document.getElementById("resultsArea").innerHTML = "<p style='color:#c00'>Belum ada data yang diupload.</p>";
+        return;
+    }
+
+    const hSat = findKey(['Satker']);
+    satkerList = [...new Set(pegawai.map(item => item[hSat]).filter(Boolean))].sort();
+    updateSatkerDropdown(satkerList);
+    applyJabatanFilter();
+}
+
+function updateSatkerDropdown(list) {
+    const dropdown = document.getElementById('satkerDropdown');
+    dropdown.innerHTML = '<option value="ALL">-- SEMUA SATKER (GABUNGAN) --</option>';
+    list.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.innerText = s;
+        dropdown.appendChild(opt);
+    });
+    document.getElementById('filterArea').style.display = 'flex';
+}
+
+function applyJabatanFilter() {
+    const selectedSatker = document.getElementById('satkerDropdown').value;
+    const hSat = findKey(['Satker']);
+    let filteredData = pegawai;
+    if (selectedSatker !== "ALL") {
+        filteredData = pegawai.filter(row => row[hSat] === selectedSatker);
+    }
+
+    document.getElementById('uploadInfoMenu3').style.display = "block";
+    document.getElementById('dateDisplayMenu3').innerText = lastProcessDate || new Date().toLocaleString('id-ID');
+
+    const cols = {
+        nama: findKey(['Nama']),
+        jab: findKey(['Jabatan']),
+        ese: findKey(['Eselon']),
+        gol: findKey(['Gol/Pangkat']),
+        stat: findKey(['Status Pegawai', 'Status']),
+        satker: hSat
+    };
+
+    let results = { struktural: {}, fungsional: {}, cpns: {}, pelaksana: {}, dikaryakan: [] };
+    eselonOrder.forEach(e => results.struktural["Jabatan Struktural " + e] = []);
+
+    filteredData.forEach(row => {
+        const nama = row[cols.nama] || "Tanpa Nama";
+        const satkerNama = row[cols.satker] || "";
+        const p = { nama, satker: satkerNama };
+        const jabRaw = row[cols.jab] ? row[cols.jab].toString() : "";
+        const eselon = row[cols.ese] ? row[cols.ese].toString().trim() : "";
+        const status = row[cols.stat] ? row[cols.stat].toString().toLowerCase().trim() : "";
+        const gol = row[cols.gol] ? row[cols.gol].toString().toLowerCase() : "";
+
+        if (status === "dikaryakan") { results.dikaryakan.push(p); return; }
+        if (eselon !== "" && eselon !== "-") {
+            const label = "Jabatan Struktural " + eselon;
+            if (!results.struktural[label]) results.struktural[label] = [];
+            results.struktural[label].push(p); return;
+        }
+
+        let cleanedJab = cleanJabatanName(jabRaw);
+        if (/keahlian|keterampilan|calon jaksa/i.test(jabRaw)) {
+            if (!results.cpns[cleanedJab]) results.cpns[cleanedJab] = [];
+            results.cpns[cleanedJab].push(p); return;
+        }
+
+        if (pelaksanaList.some(pl => cleanedJab.toLowerCase().includes(pl.toLowerCase()))) {
+            if (!results.pelaksana[cleanedJab]) results.pelaksana[cleanedJab] = [];
+            results.pelaksana[cleanedJab].push(p); return;
+        }
+
+        if (gol.includes("jaksa")) {
+            if (!results.fungsional["Jaksa Fungsional"]) results.fungsional["Jaksa Fungsional"] = [];
+            results.fungsional["Jaksa Fungsional"].push(p);
+        } else {
+            if (!results.fungsional[cleanedJab]) results.fungsional[cleanedJab] = [];
+            results.fungsional[cleanedJab].push(p);
+        }
+    });
+
+    drawJabatanTables(results, selectedSatker === "ALL");
+}
+
+function drawJabatanTables(data, groupBySatker = false) {
+    const area = document.getElementById('resultsArea');
+    area.innerHTML = "";
+    let globalNo = 1;
+    let grandTotal = 0;
+
+    // Merender daftar nama pegawai di dalam sebuah jabatan/kategori.
+    // Jika groupBySatker aktif (filter Satker = "Semua Satker"), nama diurutkan & dikelompokkan
+    // per satker, dengan nama satker ditampilkan sebagai header di atas anggota pertamanya,
+    // dan nomor urut (list angka) diulang mulai dari 1 untuk tiap satker.
+    const renderNamesList = (names) => {
+        if (!groupBySatker) {
+            return `<ul>${names.map(n => `<li>${n.nama}</li>`).join('')}</ul>`;
+        }
+        let sorted = [...names].sort((a, b) => (a.satker || "").localeCompare(b.satker || "", 'id'));
+        let html = "";
+        let currentSatker = null;
+        let buffer = [];
+        const flush = () => {
+            if (buffer.length === 0) return;
+            html += `<div class="satker-subheader">${currentSatker || 'Tanpa Satker'}</div><ul>${buffer.map(n => `<li>${n}</li>`).join('')}</ul>`;
+            buffer = [];
+        };
+        sorted.forEach(n => {
+            if (n.satker !== currentSatker) { flush(); currentSatker = n.satker; }
+            buffer.push(n.nama);
+        });
+        flush();
+        return html;
+    };
+
+    const makeTable = (title, items, isFungsional = false) => {
+        let sectionCount = 0;
+        Object.values(items).forEach(arr => sectionCount += arr.length);
+
+        let html = `<table><thead>
+            <tr><th colspan="3">
+                <div class="section-header">
+                    <span>${title}</span>
+                    <span class="subtotal-badge">JUMLAH: ${sectionCount}</span>
+                </div>
+            </th></tr>
+            <tr><th width="50">No</th><th>Jabatan</th><th width="100">Total</th></tr>
+        </thead><tbody>`;
+
+        let keys = Object.keys(items);
+        if (isFungsional) {
+            keys.sort((a, b) => (a === "Jaksa Fungsional" ? -1 : b === "Jaksa Fungsional" ? 1 : a.localeCompare(b)));
+        } else { keys.sort(); }
+
+        keys.forEach(key => {
+            const names = items[key];
+            if (names.length === 0 && title.includes("STRUKTURAL")) {
+                html += `<tr><td>${globalNo++}</td><td class="jabatan-name" style="color:#999; font-style:italic;">${key}</td><td>0</td></tr>`;
+                return;
+            }
+            if (names.length === 0) return;
+            
+            grandTotal += names.length;
+            html += `<tr><td>${globalNo++}</td><td class="jabatan-name"><details><summary>${key}</summary>${renderNamesList(names)}</details></td><td><b>${names.length}</b></td></tr>`;
+        });
+        html += `</tbody></table>`;
+        return html;
+    };
+
+    area.innerHTML += makeTable("JABATAN STRUKTURAL", data.struktural);
+    area.innerHTML += makeTable("JABATAN FUNGSIONAL TERTENTU", data.fungsional, true);
+    area.innerHTML += makeTable("FUNGSIONAL TERTENTU CPNS", data.cpns);
+    area.innerHTML += makeTable("JABATAN PELAKSANA", data.pelaksana);
+    
+    grandTotal += data.dikaryakan.length;
+    area.innerHTML += `<table><thead><tr><th colspan="3"><div class="section-header"><span>PEGAWAI DIKARYAKAN</span><span class="subtotal-badge">JUMLAH: ${data.dikaryakan.length}</span></div></th></tr></thead>
+        <tbody><tr><td>${globalNo++}</td><td class="jabatan-name"><details><summary>Daftar Pegawai Dikaryakan</summary>${renderNamesList(data.dikaryakan)}</details></td><td><b>${data.dikaryakan.length}</b></td></tr></tbody></table>`;
+
+    area.innerHTML += `<table><tr class="total-row"><td colspan="2" style="text-align:right; padding-right:20px;">JUMLAH TOTAL PEGAWAI :</td><td width="100">${grandTotal}</td></tr></table>`;
+}
+
+// === REKAP JABATAN KOSONG ===
+// Sumber data: file "Tipe Kejaksaan dan Jabatan Struktural.xlsx"
+// Daftar satuan kerja beserta tipenya (dipakai untuk menentukan daftar jabatan yang wajib ada)
+const satkerConfig = [
+    { name: "Kejaksaan Tinggi Aceh", tipe: "KEJAKSAAN_TINGGI" },
+    { name: "Kejaksaan Negeri Banda Aceh", tipe: "KN_TIPE_A" },
+    { name: "Kejaksaan Negeri Pidie", tipe: "KN_TIPE_A" },
+    { name: "Kejaksaan Negeri Lhokseumawe", tipe: "KN_TIPE_A" },
+    { name: "Kejaksaan Negeri Langsa", tipe: "KN_TIPE_A" },
+    { name: "Kejaksaan Negeri Aceh Utara", tipe: "KN_TIPE_A" },
+    { name: "Kejaksaan Negeri Aceh Tamiang", tipe: "KN_TIPE_A" },
+    { name: "Kejaksaan Negeri Sabang", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Tengah", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Barat", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Selatan", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Tenggara", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Bireuen", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Timur", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Simeulue", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Jaya", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Singkil", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Gayo Lues", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Besar", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Aceh Barat Daya", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Nagan Raya", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Bener Meriah", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Pidie Jaya", tipe: "KN_TIPE_B" },
+    { name: "Kejaksaan Negeri Subulussalam", tipe: "KN_TIPE_B" },
+    { name: "Cabang Kejaksaan Negeri Pidie di Kota bakti", tipe: "CABANG_KN" },
+    { name: "Cabang Kejaksaan Negeri Aceh Selatan di Bakongan", tipe: "CABANG_KN" }
+];
+
+// Daftar jabatan struktural yang wajib ada per tipe satuan kerja.
+// Item berupa string = nama jabatan biasa (dicocokkan persis dengan Jabatan pegawai, tanpa bagian "pada ...").
+// Item berupa objek = kasus khusus (nama jabatan yang sama muncul lebih dari sekali dalam satu satker,
+// sehingga perlu penanda tambahan (extra) untuk membedakan, mis. 2 "Kepala Seksi Penuntutan" di Kejaksaan Tinggi).
+const jabatanRequiredByTipe = {
+    KEJAKSAAN_TINGGI: [
+        "Kepala Kejaksaan Tinggi",
+        "Wakil Kepala Kejaksaan Tinggi Aceh",
+        "Asisten Intelijen",
+        "Asisten Pembinaan",
+        "Asisten Pemulihan Aset",
+        "Asisten Pengawasan",
+        "Asisten Perdata dan Tata Usaha Negara",
+        "Asisten Pidana Militer",
+        "Asisten Tindak Pidana Khusus",
+        "Asisten Tindak Pidana Umum",
+        "Koordinator",
+        "Kepala Bagian Tata Usaha",
+        "Kepala Subbagian Persuratan dan Kearsipan",
+        "Kepala Subbagian Protokol dan Keamanan Dalam",
+        "Kepala Subbagian Kepegawaian",
+        "Kepala Subbagian Keuangan",
+        "Kepala Subbagian Umum",
+        "Kepala Subbagian Data Statistik Kriminal dan Teknologi Informasi dan Perpustakaan",
+        "Kepala Subbagian Perencanaan",
+        "Kepala Seksi I",
+        "Kepala Seksi II",
+        "Kepala Seksi III",
+        "Kepala Seksi IV",
+        "Kepala Seksi V",
+        "Kepala Seksi Penerangan Hukum",
+        "Kepala Seksi A",
+        "Kepala Seksi B",
+        "Kepala Seksi C",
+        "Kepala Seksi D",
+        "Kepala Seksi Penyidikan",
+        { name: "Kepala Seksi Penuntutan pada Asisten Bidang Pidana Militer Kejaksaan Tinggi Aceh", core: "Kepala Seksi Penuntutan", extra: "Pidana Militer" },
+        "Kepala Seksi Pengendalian Operasi",
+        "Kepala Seksi Upaya Hukum Luar Biasa, Eksekusi, dan Eksaminasi",
+        "Kepala Seksi Perdata",
+        "Kepala Seksi Tata Usaha Negara",
+        "Kepala Seksi Pertimbangan Hukum",
+        "Kepala Seksi Penindakan",
+        { name: "Kepala Seksi Penuntutan pada Asisten Bidang Tindak Pidana Khusus Kejaksaan Tinggi Aceh", core: "Kepala Seksi Penuntutan", extra: "Tindak Pidana Khusus" },
+        "Kepala Seksi Eksekusi, Upaya Hukum Luar Biasa, dan Eksaminasi",
+        "Kepala Subbidang Manajemen Pengelolaan Aset",
+        "Kepala Subbidang Penelusuran dan Perampasan Aset",
+        "Kepala Subbidang Penyelesaian Aset",
+        "Pemeriksa Kepegawaian dan Tugas Umum",
+        "Pemeriksa Intelijen",
+        "Pemeriksa Tindak Pidana Umum dan Pemulihan Aset",
+        "Pemeriksa Tindak Pidana Khusus dan Pidana Militer",
+        "Pemeriksa Keuangan",
+        "Pemeriksa Perdata dan Tata Usaha Negara",
+        "Kepala Urusan Persuratan",
+        "Kepala Urusan Distribusi dan Laporan",
+        "Kepala Urusan Protokol dan Pengamanan Pimpinan",
+        "Kepala Urusan Keamanan Dalam",
+        "Kepala Urusan Kepangkatan dan Mutasi Pegawai",
+        "Kepala Urusan Pengembangan dan Kesejahteraan Pegawai",
+        "Kepala Urusan Akuntansi dan Pelaporan",
+        "Kepala Urusan Anggaran, Perjalanan, Perbendaharaan, dan Pendapatan dan Piutang Negara",
+        "Kepala Urusan Rumah Tangga, Sarana Prasarana, dan Kearsipan",
+        "Kepala Urusan Perlengkapan dan Barang Milik Negara",
+        "Kepala Urusan Data Statistik Kriminal dan Teknologi Informasi",
+        "Kepala Urusan Perpustakaan dan Dokumentasi Hukum"
+    ],
+    KN_TIPE_A: [
+        "Kepala Kejaksaan Negeri",
+        "Kepala Subbagian Pembinaan",
+        "Kepala Seksi Intelijen",
+        "Kepala Seksi Tindak Pidana Umum",
+        "Kepala Seksi Tindak Pidana Khusus",
+        "Kepala Seksi Perdata dan Tata Usaha Negara",
+        "Kepala Seksi Pemulihan Aset dan Pengelolaan Barang Bukti",
+        "Kepala Urusan Kepegawaian dan Keuangan dan Penerimaan Negara Bukan Pajak",
+        "Kepala Urusan Tata Usaha, Perpustakaan dan Data Statistik Kriminal dan Teknologi Informasi",
+        "Kepala Urusan Perlengkapan",
+        "Kepala Subseksi I",
+        "Kepala Subseksi II",
+        "Kepala Subseksi Prapenuntutan",
+        "Kepala Subseksi Penuntutan, Eksekusi dan Eksaminasi",
+        "Kepala Subseksi Penyidikan dan Pengendalian Operasi",
+        "Kepala Subseksi Penuntutan, Upaya Hukum Luar Biasa, dan Eksekusi",
+        "Kepala Subseksi Perdata dan Tata Usaha Negara",
+        "Kepala Subseksi Pertimbangan Hukum"
+    ],
+    KN_TIPE_B: [
+        "Kepala Kejaksaan Negeri",
+        "Kepala Subbagian Pembinaan",
+        "Kepala Seksi Intelijen",
+        "Kepala Seksi Tindak Pidana Umum",
+        "Kepala Seksi Tindak Pidana Khusus",
+        "Kepala Seksi Perdata dan Tata Usaha Negara",
+        "Kepala Seksi Pemulihan Aset dan Pengelolaan Barang Bukti",
+        "Kepala Subseksi I",
+        "Kepala Subseksi II",
+        "Kepala Subseksi Prapenuntutan",
+        "Kepala Subseksi Penuntutan, Eksekusi dan Eksaminasi",
+        "Kepala Subseksi Penyidikan dan Pengendalian Operasi",
+        "Kepala Subseksi Penuntutan, Upaya Hukum Luar Biasa, dan Eksekusi",
+        "Kepala Subseksi Perdata dan Tata Usaha Negara",
+        "Kepala Subseksi Pertimbangan Hukum",
+        "Kepala Urusan Tata Usaha, Kepegawaian dan Keuangan dan Penerimaan Negara Bukan Pajak",
+        "Kepala Urusan Perlengkapan, Data Statistik Kriminal dan Teknologi Informasi, dan Perpustakaan"
+    ],
+    CABANG_KN: [
+        "Kepala Cabang Kejaksaan Negeri",
+        "Kepala Urusan Pembinaan",
+        "Kepala Subseksi Tindak Pidana Umum, Tindak Pidana Khusus, dan Pemulihan Aset",
+        "Kepala Subseksi Intelijen dan Perdata dan Tata Usaha Negara"
+    ]
+};
+
+function normalizeSatkerName(s) {
+    return (s || "").toString().trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+// Meratakan spasi & huruf besar untuk perbandingan teks jabatan secara persis
+function normalizeText(s) {
+    return (s || "").toString().replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+// Mengambil nama jabatan "inti" dengan membuang bagian "pada ..." di belakangnya
+// (bagian setelah kata "pada" bisa berisi nama satker langsung, atau unit perantara
+// seperti "Asisten Bidang X Kejaksaan Tinggi Aceh" -- keduanya diabaikan di sini,
+// karena kecocokan satkernya sudah dijamin lewat pengelompokan per kolom Satker).
+function extractJabatanCore(jabRaw) {
+    if (!jabRaw) return "";
+    return jabRaw.toString().split(/\bPada\b/i)[0].replace(/\s+/g, ' ').trim();
+}
+
+// 3 jabatan "kepala kantor" ini ditulis LANGSUNG diikuti nama satuan kerjanya,
+// TANPA kata "pada" -- misalnya "Kepala Kejaksaan Tinggi Aceh", "Kepala Kejaksaan Negeri Sabang",
+// "Kepala Cabang Kejaksaan Negeri Pidie di Kota Bakti".
+// Semua jabatan lainnya ditulis: [Nama Jabatan] pada [Nama Satuan Kerja / Unit].
+const KEPALA_KANTOR_TITLES = ["Kepala Kejaksaan Tinggi", "Kepala Kejaksaan Negeri", "Kepala Cabang Kejaksaan Negeri"];
+
+// Menentukan tingkat Eselon (II/III/IV/V) dari nama jabatan, berdasarkan pola penamaan baku
+// (dicocokkan dari data pegawai riil: Kepala Kejaksaan Tinggi & Wakilnya = II; Asisten, Koordinator,
+// Kepala Bagian Tata Usaha, Kepala Kejaksaan Negeri = III; Kepala Cabang Kejaksaan Negeri, Kepala Seksi,
+// Kepala Subbagian, Kepala Subbidang, Pemeriksa = IV; Kepala Subseksi, Kepala Urusan = V).
+function getEselonLevelFromTitle(title) {
+    let t = (title || "").toString().trim();
+    if (/^Kepala Kejaksaan Tinggi/i.test(t) || /^Wakil Kepala Kejaksaan Tinggi/i.test(t)) return "II";
+    if (/^Asisten\s/i.test(t) || /^Koordinator\b/i.test(t) || /^Kepala Bagian Tata Usaha/i.test(t) || /^Kepala Kejaksaan Negeri/i.test(t)) return "III";
+    if (/^Kepala Cabang Kejaksaan Negeri/i.test(t) || /^Kepala Seksi/i.test(t) || /^Kepala Subbagian/i.test(t) || /^Kepala Subbidang/i.test(t) || /^Pemeriksa\s/i.test(t)) return "IV";
+    if (/^Kepala Subseksi/i.test(t) || /^Kepala Urusan/i.test(t)) return "V";
+    return null;
+}
+
+function generateRekapEselonKosong() {
+    const container = document.getElementById("rekapEselonKosongTable");
+    if (pegawai.length === 0) {
+        container.innerHTML = "<p style='color:#c00'>Belum ada data yang diupload.</p>";
+        return;
+    }
+
+    const hSat = findKey(['Satker']);
+    const hJab = findKey(['Jabatan']);
+    const hEse = findKey(['Eselon']);
+    const hStat = findKey(['Status Pegawai', 'Status']);
+    const eselonLevels = ["II", "III", "IV", "V"];
+
+    // Kelompokkan data (jabatan + eselon aktual) pegawai per satker, kecuali yang berstatus "Dikaryakan"
+    let dataBySatker = {};
+    pegawai.forEach(p => {
+        let status = (p[hStat] || "").toString().toLowerCase().trim();
+        if (status === "dikaryakan") return;
+        let key = normalizeSatkerName(p[hSat]);
+        if (!dataBySatker[key]) dataBySatker[key] = [];
+        if (p[hJab]) {
+            // Ambil bagian Eselon di sebelah kiri karakter "/", mis. "IV/a" -> "IV"
+            let eseRaw = (p[hEse] || "").toString().split('/')[0].trim().toUpperCase();
+            dataBySatker[key].push({ jabatan: p[hJab].toString(), eselon: eseRaw });
+        }
+    });
+
+    let rows = [];
+    let sumPerEselon = {}; eselonLevels.forEach(l => sumPerEselon[l] = { terisi: 0, kosong: 0 });
+    let grandTerisi = 0, grandKosong = 0;
+
+    satkerConfig.forEach(cfg => {
+        let key = normalizeSatkerName(cfg.name);
+        let records = dataBySatker[key] || [];
+        let requiredList = jabatanRequiredByTipe[cfg.tipe] || [];
+        let tally = {}; eselonLevels.forEach(l => tally[l] = { terisi: 0, kosong: 0 });
+
+        requiredList.forEach(item => {
+            let isString = typeof item === 'string';
+            let displayName = isString ? item : item.name;
+
+            // Cari pegawai yang benar-benar menjabat posisi ini
+            let matched;
+            if (isString) {
+                if (KEPALA_KANTOR_TITLES.includes(item)) {
+                    let expected = normalizeText("Kepala " + cfg.name);
+                    matched = records.find(r => normalizeText(r.jabatan) === expected);
+                } else {
+                    let target = normalizeText(item);
+                    matched = records.find(r => normalizeText(extractJabatanCore(r.jabatan)) === target);
+                }
+            } else {
+                let coreTarget = normalizeText(item.core);
+                let extraTarget = normalizeText(item.extra);
+                matched = records.find(r => {
+                    let core = normalizeText(extractJabatanCore(r.jabatan));
+                    let full = normalizeText(r.jabatan);
+                    return core === coreTarget && full.includes(extraTarget);
+                });
+            }
+
+            if (matched) {
+                // Terisi: level eselon diambil langsung dari kolom Eselon pegawai bersangkutan.
+                // Jika nilainya tidak valid/kosong, gunakan pola nama jabatan sebagai cadangan.
+                let level = eselonLevels.includes(matched.eselon) ? matched.eselon : getEselonLevelFromTitle(displayName);
+                if (!level) return;
+                tally[level].terisi++;
+            } else {
+                // Kosong: tidak ada data pegawai untuk dibaca kolom Eselon-nya,
+                // sehingga level ditentukan dari pola nama jabatan.
+                let level = getEselonLevelFromTitle(displayName);
+                if (!level) return;
+                tally[level].kosong++;
+            }
+        });
+
+        let rowTerisi = eselonLevels.reduce((a, l) => a + tally[l].terisi, 0);
+        let rowKosong = eselonLevels.reduce((a, l) => a + tally[l].kosong, 0);
+        eselonLevels.forEach(l => { sumPerEselon[l].terisi += tally[l].terisi; sumPerEselon[l].kosong += tally[l].kosong; });
+        grandTerisi += rowTerisi; grandKosong += rowKosong;
+
+        rows.push({ satker: cfg.name, tally, rowTerisi, rowKosong });
+    });
+
+    let html = `<table>
+        <tr>
+            <th rowspan="2">No</th>
+            <th rowspan="2">Satuan Kerja</th>
+            <th colspan="2">Eselon II</th>
+            <th colspan="2">Eselon III</th>
+            <th colspan="2">Eselon IV</th>
+            <th colspan="2">Eselon V</th>
+            <th colspan="2" class="row-total">Total</th>
+        </tr>
+        <tr>
+            <th>Terisi</th><th>Kosong</th>
+            <th>Terisi</th><th>Kosong</th>
+            <th>Terisi</th><th>Kosong</th>
+            <th>Terisi</th><th>Kosong</th>
+            <th class="row-total">Terisi</th><th class="row-total">Kosong</th>
+        </tr>`;
+
+    rows.forEach((r, i) => {
+        html += `<tr><td>${i + 1}</td><td style="text-align:left">${r.satker}</td>`;
+        eselonLevels.forEach(l => {
+            html += `<td>${r.tally[l].terisi || '-'}</td><td>${r.tally[l].kosong || '-'}</td>`;
+        });
+        html += `<td class="row-total">${r.rowTerisi}</td><td class="row-total">${r.rowKosong}</td></tr>`;
+    });
+
+    html += `<tr class="grand-total"><td colspan="2">TOTAL KESELURUHAN</td>`;
+    eselonLevels.forEach(l => {
+        html += `<td>${sumPerEselon[l].terisi}</td><td>${sumPerEselon[l].kosong}</td>`;
+    });
+    html += `<td>${grandTerisi}</td><td>${grandKosong}</td></tr></table>`;
+
+    container.innerHTML = html;
+}
+
+function generateRekapJabatanKosong() {
+    const container = document.getElementById("rekapJabatanKosongTable");
+    if (pegawai.length === 0) {
+        container.innerHTML = "<p style='color:#c00'>Belum ada data yang diupload.</p>";
+        return;
+    }
+
+    const hSat = findKey(['Satker']);
+    const hJab = findKey(['Jabatan']);
+
+    // Kelompokkan seluruh nilai kolom Jabatan pegawai per satker (kunci dinormalisasi)
+    let jabatanBySatker = {};
+    pegawai.forEach(p => {
+        let key = normalizeSatkerName(p[hSat]);
+        if (!jabatanBySatker[key]) jabatanBySatker[key] = [];
+        if (p[hJab]) jabatanBySatker[key].push(p[hJab].toString());
+    });
+
+    // Susun daftar jabatan kosong per satker
+    let hasilPerSatker = []; // { satker, kosong: [nama jabatan, ...] }
+
+    satkerConfig.forEach(cfg => {
+        let key = normalizeSatkerName(cfg.name);
+        let jabatanPegawai = jabatanBySatker[key] || [];
+        let requiredList = jabatanRequiredByTipe[cfg.tipe] || [];
+        let kosong = [];
+
+        requiredList.forEach(item => {
+            let isString = typeof item === 'string';
+            let displayName = isString ? item : item.name;
+            let isFilled;
+
+            if (isString) {
+                if (KEPALA_KANTOR_TITLES.includes(item)) {
+                    // Ditulis langsung "Kepala [Nama Satuan Kerja]", tanpa kata "pada"
+                    let expected = normalizeText("Kepala " + cfg.name);
+                    isFilled = jabatanPegawai.some(j => normalizeText(j) === expected);
+                } else {
+                    // Bandingkan bagian sebelum kata "pada" secara PERSIS dengan nama jabatan yang wajib ada.
+                    // Bagian satker/unit setelah "pada" tidak perlu dicocokkan lagi karena data pegawai
+                    // sudah dikelompokkan berdasarkan kolom Satker.
+                    let target = normalizeText(item);
+                    isFilled = jabatanPegawai.some(j => normalizeText(extractJabatanCore(j)) === target);
+                }
+            } else {
+                // Kasus khusus: nama jabatan yang sama muncul lebih dari sekali dalam satu satker
+                // (mis. 2x "Kepala Seksi Penuntutan" di Kejaksaan Tinggi), dibedakan lewat kata penanda (extra)
+                // yang harus muncul di bagian setelah kata "pada".
+                let coreTarget = normalizeText(item.core);
+                let extraTarget = normalizeText(item.extra);
+                isFilled = jabatanPegawai.some(j => {
+                    let core = normalizeText(extractJabatanCore(j));
+                    let full = normalizeText(j);
+                    return core === coreTarget && full.includes(extraTarget);
+                });
+            }
+
+            if (!isFilled) kosong.push(displayName);
+        });
+
+
+        if (kosong.length > 0) hasilPerSatker.push({ satker: cfg.name, kosong });
+    });
+
+    if (hasilPerSatker.length === 0) {
+        container.innerHTML = "<p style='color:#217346; font-weight:bold;'>✅ Tidak ada jabatan kosong. Seluruh jabatan struktural yang wajib ada telah terisi.</p>";
+        return;
+    }
+
+    let globalNo = 1;
+    let grandTotal = 0;
+    let html = "";
+
+    hasilPerSatker.forEach(entry => {
+        html += `<table><thead>
+            <tr><th colspan="3">
+                <div class="section-header">
+                    <span>${entry.satker}</span>
+                    <span class="subtotal-badge">JABATAN KOSONG: ${entry.kosong.length}</span>
+                </div>
+            </th></tr>
+            <tr><th width="50">No</th><th>Nama Jabatan (Kosong)</th><th width="150">Satuan Kerja</th></tr>
+        </thead><tbody>`;
+        entry.kosong.forEach(nama => {
+            html += `<tr><td>${globalNo++}</td><td class="jabatan-name" style="text-align:left">${nama}</td><td>${entry.satker}</td></tr>`;
+            grandTotal++;
+        });
+        html += `</tbody></table>`;
+    });
+
+    html += `<table><tr class="total-row"><td colspan="2" style="text-align:right; padding-right:20px;">JUMLAH TOTAL JABATAN KOSONG :</td><td width="100">${grandTotal}</td></tr></table>`;
+
+    container.innerHTML = html;
+}
+
+// === PENYIMPANAN URUTAN & CHECKLIST ===
+function saveColumnSettings() {
+    // Mode Daftar
+    const listItems = Array.from(document.querySelectorAll('#listOrder .draggable-item'));
+    const listOrderData = listItems.map(item => ({
+        header: item.dataset.header,
+        checked: item.querySelector('input').checked
+    }));
+    localStorage.setItem('listColumnsOrder', JSON.stringify(listOrderData));
+
+    // Mode Tabel
+    const tableSettings = [];
+    document.querySelectorAll('#tableSelectors .draggable-list').forEach(list => {
+        const colItems = Array.from(list.querySelectorAll('.draggable-item'));
+        const colData = colItems.map(item => ({
+            header: item.dataset.header,
+            checked: item.querySelector('input').checked
+        }));
+        tableSettings.push(colData);
+    });
+    localStorage.setItem('tableColumnsOrder', JSON.stringify(tableSettings));
+}
+
+function loadColumnSettings() {
+    // Mode Daftar
+    const savedListOrder = localStorage.getItem('listColumnsOrder');
+    if (savedListOrder) {
+        const savedData = JSON.parse(savedListOrder);
+        const savedMap = new Map(savedData.map(item => [item.header, item.checked]));
+        
+        const container = document.getElementById('listOrder');
+        const items = Array.from(container.querySelectorAll('.draggable-item'));
+        container.innerHTML = '';
+
+        savedData.forEach(savedItem => {
+            const item = items.find(i => i.dataset.header === savedItem.header);
+            if (item) {
+                item.querySelector('input').checked = savedItem.checked;
+                container.appendChild(item);
+            }
+        });
+
+        items.forEach(item => {
+            if (!savedMap.has(item.dataset.header)) {
+                container.appendChild(item);
+            }
+        });
+    }
+
+    // Mode Tabel
+    const savedTableOrder = localStorage.getItem('tableColumnsOrder');
+    if (savedTableOrder) {
+        const savedCols = JSON.parse(savedTableOrder);
+        const colContainers = Array.from(document.querySelectorAll('#tableSelectors .draggable-list'));
+        
+        if (savedCols.length === colContainers.length) {
+            colContainers.forEach((container, index) => {
+                const savedColData = savedCols[index] || [];
+                const savedMap = new Map(savedColData.map(item => [item.header, item.checked]));
+                
+                const items = Array.from(container.querySelectorAll('.draggable-item'));
+                container.innerHTML = '';
+
+                savedColData.forEach(savedItem => {
+                    const item = items.find(i => i.dataset.header === savedItem.header);
+                    if (item) {
+                        item.querySelector('input').checked = savedItem.checked;
+                        container.appendChild(item);
+                    }
+                });
+
+                items.forEach(item => {
+                    if (!savedMap.has(item.dataset.header)) {
+                        container.appendChild(item);
+                    }
+                });
+            });
+        }
+    }
+
+    refreshView();
+}
+
+// === DRAG & DROP ===
+function setupDragAndDrop(container) {
+    let draggedItem = null;
+
+    container.addEventListener('dragstart', function(e) {
+        draggedItem = e.target.closest('.draggable-item');
+        setTimeout(() => draggedItem.style.display = 'none', 0);
+    });
+
+    container.addEventListener('dragend', function(e) {
+        setTimeout(() => {
+            draggedItem.style.display = 'flex';
+            draggedItem = null;
+            refreshView();
+            saveColumnSettings();
+        }, 0);
+    });
+
+    container.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        let afterElement = getDragAfterElement(container, e.clientY);
+        let currentItem = draggedItem;
+        if (afterElement == null) {
+            container.appendChild(currentItem);
+        } else {
+            container.insertBefore(currentItem, afterElement);
+        }
+    });
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.draggable-item:not([style*="display: none"])')];
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// === GENERATE PENGATURAN KOLOM ===
+function generateListOrder() {
+    let container = document.getElementById('listOrder');
+    container.innerHTML = '';
+    let hs = [...allHeaders];
+    hs.forEach(h => {
+        let item = document.createElement('div');
+        item.className = 'draggable-item';
+        item.dataset.header = h;
+        item.draggable = true;
+        item.innerHTML = `<input type="checkbox" checked> ${h}`;
+        item.querySelector('input').onchange = function() {
+            refreshView();
+            saveColumnSettings();
+        };
+        container.appendChild(item);
+    });
+    setupDragAndDrop(container);
+}
+
+function generateTableSelectors() {
+    let n = document.getElementById('tableColumns').value;
+    let container = document.getElementById('tableSelectors');
+    container.innerHTML = '';
+    let hs = [...allHeaders];
+    for(let i=0; i<n; i++) {
+        let d = document.createElement('div');
+        d.style = "border:1px solid #ccc; padding:5px; background:#eee; min-width:140px;";
+        d.innerHTML = `<b>Kolom ${i+1}</b><div class="draggable-list"></div>`;
+        let list = d.querySelector('.draggable-list');
+        hs.forEach(h => {
+            let item = document.createElement('div');
+            item.className = 'draggable-item';
+            item.dataset.header = h;
+            item.draggable = true;
+            item.innerHTML = `<input type="checkbox" ${i===0 && h.toLowerCase().includes('nama') ? 'checked' : ''}> ${h}`;
+            item.querySelector('input').onchange = function() {
+                refreshView();
+                saveColumnSettings();
+            };
+            list.appendChild(item);
+        });
+        setupDragAndDrop(list);
+        container.appendChild(d);
+    }
+    refreshView();
+}
+
+// === DOWNLOAD WORD / EXCEL / PDF ===
+function downloadWordFromTables(selectorAll, filename, title) {
+    let tables = document.querySelectorAll(selectorAll);
+    if (!tables.length) { alert('Tidak ada data untuk diunduh.'); return; }
+    let content = '';
+    tables.forEach(t => { content += t.outerHTML + '<br>'; });
+    let html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8"><title>${title || filename}</title>
+<style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    table { border-collapse: collapse; width: 100%; }
+    table, th, td { border: 1px solid #333; }
+    th, td { padding: 5px; text-align: center; }
+</style>
+</head><body><h3>${title || ''}</h3>${content}</body></html>`;
+    let blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    let link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + '.doc';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function downloadExcelFromTables(selectorAll, filename) {
+    let tables = document.querySelectorAll(selectorAll);
+    if (!tables.length) { alert('Tidak ada data untuk diunduh.'); return; }
+    let aoa = [];
+    tables.forEach((t, idx) => {
+        let sheet = XLSX.utils.table_to_sheet(t);
+        let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (idx > 0) aoa.push([]);
+        aoa = aoa.concat(rows);
+    });
+    let ws = XLSX.utils.aoa_to_sheet(aoa);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, filename + '.xlsx');
+}
+
+function downloadPDFFromTables(selectorAll, filename, title) {
+    let tables = document.querySelectorAll(selectorAll);
+    if (!tables.length) { alert('Tidak ada data untuk diunduh.'); return; }
+    const { jsPDF } = window.jspdf;
+    let doc = new jsPDF({ orientation: 'landscape' });
+    let pageHeight = doc.internal.pageSize.getHeight();
+    let y = 15;
+    doc.setFontSize(12);
+    doc.text(title || filename, 14, y);
+    y += 8;
+    tables.forEach(t => {
+        if (y > pageHeight - 25) { doc.addPage(); y = 15; }
+        doc.autoTable({
+            html: t,
+            startY: y,
+            styles: { fontSize: 7, cellPadding: 2 },
+            headStyles: { fillColor: [44, 123, 229], textColor: 0 },
+            margin: { top: 15 }
+        });
+        y = doc.lastAutoTable.finalY + 10;
+    });
+    doc.save(filename + '.pdf');
+}
+
+// === UPLOAD ===
+
+// Memproses workbook (dari file Excel ATAU dari CSV Google Sheets) menjadi data pegawai.
+// Dipakai bersama oleh upload manual dan pemuatan otomatis dari Google Sheets agar konsisten.
+function processWorkbook(wb, source) {
+    let rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+
+    pegawai = rawData.map(row => {
+        let nipNrpKey = Object.keys(row).find(k =>
+            k.toLowerCase().includes('nip') || k.toLowerCase().includes('nrp')
+        ) || 'NIP / NRP';
+
+        let { nip, nrp } = parseNipNrp(row[nipNrpKey]);
+        let newRow = { ...row, NIP: nip, NRP: nrp };
+        delete newRow[nipNrpKey];
+        return newRow;
+    });
+
+    allHeaders = [...new Set(pegawai.flatMap(Object.keys))].sort();
+    if (!allHeaders.includes('NIP')) allHeaders.unshift('NIP');
+    if (!allHeaders.includes('NRP')) allHeaders.unshift('NRP');
+
+    // SIMPAN DATA PEGAWAI
+    localStorage.setItem('pegawaiData', JSON.stringify(pegawai));
+
+    // SIMPAN TANGGAL PROSES (Hanya terjadi saat data dimuat)
+    lastProcessDate = new Date().toLocaleString('id-ID', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) + (source ? " — sumber: " + source : "");
+    localStorage.setItem('lastProcessDate', lastProcessDate);
+
+    generateListOrder();
+    generateTableSelectors();
+    loadColumnSettings();
+}
+
+document.getElementById('fileInput').onchange = function(e) {
+    let reader = new FileReader();
+    reader.onload = function(e) {
+        let wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        processWorkbook(wb, "Upload Manual");
+        alert('Data berhasil dimuat!\nPengaturan kolom (urutan & checklist) akan tersimpan otomatis.');
+    };
+    reader.readAsArrayBuffer(this.files[0]);
+};
+
+// === SUMBER DATA OTOMATIS: GOOGLE SHEETS ===
+let gsheetCsvUrl = "";
+
+function setGSheetStatus(msg, color) {
+    let el = document.getElementById('gsheetStatus');
+    if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+}
+
+// Menerima link Google Sheets biasa (link Share/edit) dan mengubahnya menjadi
+// link ekspor CSV otomatis, supaya admin tidak perlu tahu format link publish-to-web.
+function normalizeGSheetCsvUrl(url) {
+    try {
+        // Link "publish to web" (format /spreadsheets/d/e/xxx/pub...) sudah siap pakai, jangan diubah.
+        if (/\/spreadsheets\/d\/e\//.test(url)) return url;
+
+        let m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (!m) return url; // format tidak dikenali (mungkin sudah berupa link CSV), pakai apa adanya
+        let id = m[1];
+        let gidMatch = url.match(/[#&?]gid=(\d+)/);
+        let gid = gidMatch ? gidMatch[1] : '0';
+        return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+    } catch (e) {
+        return url;
+    }
+}
+
+function loadFromGSheet(manual) {
+    if (!gsheetCsvUrl) {
+        if (manual) alert('Link Google Sheets belum diisi.');
+        return;
+    }
+    setGSheetStatus('⏳ Memuat data dari Google Sheets...', '#555');
+    let csvUrl = normalizeGSheetCsvUrl(gsheetCsvUrl);
+
+    fetch(csvUrl)
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.text();
+        })
+        .then(csvText => {
+            if (csvText.trim().startsWith('<')) {
+                throw new Error('Sheet belum bisa diakses publik. Cek pengaturan Share → "Anyone with the link".');
+            }
+            let wb = XLSX.read(csvText, { type: 'string' });
+            processWorkbook(wb, "Google Sheets");
+            setGSheetStatus('✅ Data berhasil dimuat dari Google Sheets. ' + lastProcessDate, '#217346');
+            if (manual) alert('Data berhasil dimuat dari Google Sheets!');
+        })
+        .catch(err => {
+            setGSheetStatus('⚠️ Gagal memuat dari Google Sheets (' + err.message + '). Menampilkan data tersimpan terakhir.', '#c00');
+        });
+}
+
+function saveAndLoadGSheet() {
+    let val = document.getElementById('gsheetUrlInput').value.trim();
+    if (!val) { alert('Masukkan link Google Sheets terlebih dahulu.'); return; }
+    gsheetCsvUrl = val;
+    localStorage.setItem('gsheetCsvUrl', gsheetCsvUrl);
+    loadFromGSheet(true);
+}
+
+function clearGSheetSource() {
+    gsheetCsvUrl = "";
+    localStorage.removeItem('gsheetCsvUrl');
+    let input = document.getElementById('gsheetUrlInput');
+    if (input) input.value = "";
+    setGSheetStatus('Link Google Sheets dihapus. Sumber data kembali ke upload Excel manual.', '#555');
+}
+
+window.onload = () => {
+    // Muat pengaturan link Google Sheets (jika ada)
+    gsheetCsvUrl = localStorage.getItem('gsheetCsvUrl') || "";
+    let gsheetInput = document.getElementById('gsheetUrlInput');
+    if (gsheetInput) gsheetInput.value = gsheetCsvUrl;
+
+    let saved = localStorage.getItem('pegawaiData');
+    if(saved) {
+        pegawai = JSON.parse(saved);
+        allHeaders = [...new Set(pegawai.flatMap(Object.keys))].sort();
+        if (!allHeaders.includes('NIP')) allHeaders.unshift('NIP');
+        if (!allHeaders.includes('NRP')) allHeaders.unshift('NRP');
+        
+        // MENGAMBIL TANGGAL DARI STORAGE (Bukan membuat tanggal baru)
+        lastProcessDate = localStorage.getItem('lastProcessDate') || "";
+        
+        generateListOrder();
+        generateTableSelectors();
+        loadColumnSettings();
+    }
+    showMode('list');
+
+    // Jika link Google Sheets tersimpan, muat ulang data terbaru di latar belakang
+    // (data lama dari cache tetap tampil dulu supaya aplikasi langsung bisa dipakai)
+    if (gsheetCsvUrl) {
+        loadFromGSheet(false);
+    }
+};
+</script>
+</body>
+</html>
