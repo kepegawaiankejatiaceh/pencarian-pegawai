@@ -108,10 +108,10 @@
     <div class="collapse-header" onclick="toggleCollapse('gsheetSettings')">🔗 Sumber Data Otomatis (Google Sheets) ▼</div>
     <div class="collapse-content" id="gsheetSettings">
         <div class="info-box" style="font-size:0.85em; text-align:left;">
-            ✅ Aplikasi ini sudah terhubung ke Google Sheets data pegawai Kejaksaan Tinggi Aceh secara bawaan.
-            Data otomatis termuat setiap aplikasi dibuka, tanpa perlu setting apapun.<br><br>
-            <b>Untuk admin: cara memperbarui data</b> — buka Google Sheets tersebut, lalu <b>File → Import → Replace current sheet</b> dengan file Excel terbaru. Semua orang yang membuka aplikasi ini akan otomatis melihat data terbaru.<br><br>
-            <b>Ingin memakai sumber data lain (khusus perangkat ini saja)?</b> Tempel link Google Sheets lain di kolom di bawah (pastikan sudah di-share "Anyone with the link"), lalu klik Simpan & Muat. Klik "Hapus Link" untuk kembali ke sumber data bawaan.
+            ✅ Aplikasi ini sudah terhubung ke Google Sheets data pegawai Kejaksaan Tinggi Aceh secara bawaan (lewat Apps Script).
+            Data otomatis termuat setiap aplikasi dibuka, lengkap dengan <b>waktu edit asli spreadsheet</b> — tanpa perlu setting apapun.<br><br>
+            <b>Untuk admin: cara memperbarui data</b> — edit langsung isi Google Sheets tersebut (tambah/ubah baris, dsb). Semua orang yang membuka aplikasi ini akan otomatis melihat data terbaru beserta waktu editnya.<br><br>
+            <b>Ingin memakai sumber data lain (khusus perangkat ini saja)?</b> Tempel link Google Sheets biasa ATAU link Web App Apps Script lain di kolom di bawah, lalu klik Simpan & Muat. Link Apps Script akan menampilkan waktu edit asli; link Google Sheets biasa tidak. Klik "Hapus Link" untuk kembali ke sumber data bawaan.
         </div>
         <label>Link Google Sheets: </label>
         <input type="text" id="gsheetUrlInput" placeholder="Tempel link Google Sheets di sini..." style="width:420px; padding:8px;">
@@ -123,7 +123,8 @@
 </div>
 
 <div class="info-box" id="uploadInfoMenu3" style="display:none;">
-        <b>📅 Data terakhir diproses:</b> <span id="dateDisplayMenu3">-</span>
+        <b>📅 Data terakhir diproses:</b> <span id="dateDisplayMenu3">-</span><br>
+        <b>🗓️ Update terakhir spreadsheet (asli):</b> <span id="dateDisplaySheetUpdated">-</span>
     </div>
 
 <div class="container">
@@ -245,11 +246,19 @@ let selectedPegawai = [];
 let allHeaders = [];
 let satkerList = [];
 let lastProcessDate = "";
+let sheetLastUpdated = ""; // Waktu edit ASLI spreadsheet (dari Apps Script), beda dengan lastProcessDate
 
-// Link Google Sheets bawaan aplikasi (data pegawai Kejaksaan Tinggi Aceh).
+// Link sumber data bawaan aplikasi (data pegawai Kejaksaan Tinggi Aceh).
 // Semua orang yang membuka aplikasi ini otomatis memuat data dari sini,
 // kecuali mereka mengganti link-nya sendiri lewat panel "Sumber Data Otomatis" di browsernya masing-masing.
-const DEFAULT_GSHEET_URL = "https://docs.google.com/spreadsheets/d/1W0Q5ciBSGLmVgEwqwI-wLyr5zb3a9jeqW2pN5qqTV8Y/edit?usp=drive_link";
+// Memakai Web App Apps Script (bukan link CSV biasa) supaya bisa sekaligus mengambil
+// waktu edit ASLI spreadsheet, bukan hanya waktu aplikasi memproses data.
+const DEFAULT_GSHEET_URL = "https://script.google.com/macros/s/AKfycbzPi27WiEH2pkDDsUNf3v8rS9vkoX577T9ePR5lqFvrjfM1-aaV8CRL75Yh6JfNBXbp6g/exec";
+
+// Mendeteksi apakah sebuah link adalah Web App Apps Script (bukan link Google Sheets biasa)
+function isAppsScriptUrl(url) {
+    return /script\.google\.com\/macros/.test(url || "");
+}
 
 // --- Parsing NIP/NRP ---
 function parseNipNrp(raw) {
@@ -692,6 +701,7 @@ function applyJabatanFilter() {
 
     document.getElementById('uploadInfoMenu3').style.display = "block";
     document.getElementById('dateDisplayMenu3').innerText = lastProcessDate || new Date().toLocaleString('id-ID');
+    document.getElementById('dateDisplaySheetUpdated').innerText = sheetLastUpdated || '(tidak tersedia — sumber data bukan Apps Script)';
 
     const cols = {
         nama: findKey(['Nama']),
@@ -1458,9 +1468,10 @@ function downloadPDFFromTables(selectorAll, filename, title) {
 
 // === UPLOAD ===
 
-// Memproses workbook (dari file Excel ATAU dari CSV Google Sheets) menjadi data pegawai.
+// Memproses workbook (dari file Excel, CSV Google Sheets, ATAU JSON Apps Script) menjadi data pegawai.
 // Dipakai bersama oleh upload manual dan pemuatan otomatis dari Google Sheets agar konsisten.
-function processWorkbook(wb, source) {
+// realUpdateTime (opsional): waktu edit ASLI spreadsheet, kalau sumbernya Apps Script.
+function processWorkbook(wb, source, realUpdateTime) {
     let rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 
     pegawai = rawData.map(row => {
@@ -1486,6 +1497,12 @@ function processWorkbook(wb, source) {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
     }) + (source ? " — sumber: " + source : "");
     localStorage.setItem('lastProcessDate', lastProcessDate);
+
+    // SIMPAN WAKTU EDIT ASLI SPREADSHEET (kalau sumbernya Apps Script menyediakannya)
+    if (realUpdateTime) {
+        sheetLastUpdated = realUpdateTime;
+        localStorage.setItem('sheetLastUpdated', sheetLastUpdated);
+    }
 
     generateListOrder();
     generateTableSelectors();
@@ -1539,6 +1556,13 @@ function loadFromGSheet(manual) {
         return;
     }
     setGSheetStatus('⏳ Memuat data dari Google Sheets...', '#555');
+
+    // Jika sumbernya Web App Apps Script, pakai jalur JSON (bisa bawa waktu edit asli sekaligus)
+    if (isAppsScriptUrl(gsheetCsvUrl)) {
+        loadFromAppsScript(gsheetCsvUrl, manual);
+        return;
+    }
+
     let csvUrl = normalizeGSheetCsvUrl(gsheetCsvUrl);
 
     fetch(csvUrl)
@@ -1557,7 +1581,10 @@ function loadFromGSheet(manual) {
                 throw new Error('Sheet belum bisa diakses publik. Cek pengaturan Share → "Anyone with the link".');
             }
             let wb = XLSX.read(csvText, { type: 'string' });
-            processWorkbook(wb, "Google Sheets");
+            // Link CSV biasa tidak membawa metadata waktu edit asli, jadi sheetLastUpdated dikosongkan
+            sheetLastUpdated = "";
+            localStorage.removeItem('sheetLastUpdated');
+            processWorkbook(wb, "Google Sheets (CSV)");
             setGSheetStatus('✅ Data berhasil dimuat dari Google Sheets. ' + lastProcessDate, '#217346');
             if (manual) alert('Data berhasil dimuat dari Google Sheets!');
         })
@@ -1565,6 +1592,43 @@ function loadFromGSheet(manual) {
             let msg = err.message || 'Tidak diketahui';
             if (/Failed to fetch/i.test(msg)) msg = 'Gagal terhubung (kemungkinan diblokir CORS/jaringan, atau sheet belum publik).';
             setGSheetStatus('⚠️ Gagal memuat dari Google Sheets (' + msg + '). Menampilkan data tersimpan terakhir.', '#c00');
+        });
+}
+
+// Memuat data + waktu edit ASLI spreadsheet lewat Web App Apps Script (endpoint doGet
+// yang mengembalikan JSON: { lastUpdated, data }).
+function loadFromAppsScript(url, manual) {
+    fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status + '. Cek kembali link deployment Apps Script.');
+            return res.json();
+        })
+        .then(json => {
+            if (!json || !Array.isArray(json.data)) {
+                throw new Error('Format respons Apps Script tidak dikenali (field "data" tidak ditemukan).');
+            }
+            let ws = XLSX.utils.aoa_to_sheet(json.data);
+            let wb = { SheetNames: ['Sheet1'], Sheets: { Sheet1: ws } };
+
+            let realUpdateTime = json.lastUpdated
+                ? new Date(json.lastUpdated).toLocaleString('id-ID', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                  })
+                : "";
+
+            processWorkbook(wb, "Google Sheets (Apps Script)", realUpdateTime);
+
+            setGSheetStatus(
+                '✅ Data berhasil dimuat.' +
+                (realUpdateTime ? ' Update terakhir spreadsheet: ' + realUpdateTime : ''),
+                '#217346'
+            );
+            if (manual) alert('Data berhasil dimuat dari Google Sheets!');
+        })
+        .catch(err => {
+            let msg = err.message || 'Tidak diketahui';
+            if (/Failed to fetch/i.test(msg)) msg = 'Gagal terhubung (kemungkinan CORS/jaringan, atau deployment belum diset "Anyone").';
+            setGSheetStatus('⚠️ Gagal memuat dari Apps Script (' + msg + '). Menampilkan data tersimpan terakhir.', '#c00');
         });
 }
 
@@ -1600,7 +1664,8 @@ window.onload = () => {
         
         // MENGAMBIL TANGGAL DARI STORAGE (Bukan membuat tanggal baru)
         lastProcessDate = localStorage.getItem('lastProcessDate') || "";
-        
+        sheetLastUpdated = localStorage.getItem('sheetLastUpdated') || "";
+
         generateListOrder();
         generateTableSelectors();
         loadColumnSettings();
