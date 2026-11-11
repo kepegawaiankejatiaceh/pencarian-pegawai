@@ -2,240 +2,442 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>Pencarian Pegawai V5 - Dengan Penyimpanan Pengaturan Kolom</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<title>SIMKARI — Sistem Informasi Kepegawaian Kejaksaan Tinggi Aceh</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <style>
-    /* --- Gaya Dasar --- */
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; padding-top: 80px; }
-    .container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    
-    /* --- Dropdown Pencarian --- */
-    .dropdown { border: 1px solid #ccc; max-height: 150px; overflow-y: auto; position: absolute; background: #fff; z-index: 10; width: 400px; }
-    .dropdown div { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
-    .dropdown div:hover { background-color: #f0f0f0; }
-    
-    /* --- Tombol & Form --- */
-    button { background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; margin-right: 5px; }
-    button:hover { background: #0056b3; }
-    
-    /* --- Tabel (General) --- */
-    table { border-collapse: collapse; width: 100%; background: white; margin-top: 15px; font-size: 12px; }
-    table, th, td { border: 1px solid #333; }
-    th, td { padding: 6px; vertical-align: middle; }
-    
-    /* 1. Header Tabel: Selalu Rata Tengah */
-    th { background: #2c7be5; color: black; text-align: center !important; }
-
-    /* 2. Isi Tabel: Default Rata Tengah (Untuk Angka & Golongan) */
-    td { text-align: center; }
-
-    /* 3. Pengecualian: Rata Kiri Untuk Kolom Teks Panjang */
-    #rekapTable table td:nth-child(2),         /* Satker di Menu 1 */
-    #rekapGolonganTable table td:nth-child(1),    /* Satker di Menu 2 */
-    .jabatan-name {                            /* Nama Jabatan di Menu 3 */
-        text-align: center;
+    :root {
+        --navy-900: #0a2540;
+        --navy-800: #0d3159;
+        --navy-700: #123d6e;
+        --gold-500: #c99a2e;
+        --gold-400: #e0b74a;
+        --bg: #f2f4f8;
+        --card: #ffffff;
+        --text-main: #1b2733;
+        --text-muted: #6b7785;
+        --border: #e3e7ee;
+        --green: #1e8e5a;
+        --red: #c0392b;
+        --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+        margin: 0; background: var(--bg); color: var(--text-main);
     }
 
+    /* --- Layout Utama --- */
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar {
+        width: 260px; background: linear-gradient(180deg, var(--navy-900), var(--navy-800));
+        color: #fff; position: fixed; top: 0; bottom: 0; left: 0; overflow-y: auto;
+        display: flex; flex-direction: column; z-index: 100;
+    }
+    .sidebar-brand { padding: 22px 20px; border-bottom: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; gap: 12px; }
+    .sidebar-brand .logo-badge {
+        width: 42px; height: 42px; border-radius: 50%; background: var(--gold-500);
+        display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--navy-900); font-size: 1.1em; flex-shrink: 0;
+    }
+    .sidebar-brand .brand-text b { display: block; font-size: 0.95em; line-height: 1.3; }
+    .sidebar-brand .brand-text span { display: block; font-size: 0.72em; color: rgba(255,255,255,0.65); }
+    .sidebar-nav { padding: 14px 10px; flex: 1; }
+    .nav-group-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.45); padding: 16px 12px 6px; }
+    .nav-item {
+        display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+        background: transparent; color: rgba(255,255,255,0.85); border: none; border-radius: 8px;
+        padding: 10px 12px; margin: 2px 0; font-size: 0.92em; cursor: pointer;
+        border-left: 3px solid transparent; transition: background 0.15s, color 0.15s;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-item.active { background: rgba(201,154,46,0.18); color: #fff; border-left: 3px solid var(--gold-500); font-weight: 600; }
+    .nav-item .icon { font-size: 1.05em; width: 18px; text-align: center; }
+    .sidebar-footer { padding: 14px 20px; font-size: 0.72em; color: rgba(255,255,255,0.45); border-top: 1px solid rgba(255,255,255,0.12); }
+
+    .main-area { margin-left: 260px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    .topheader {
+        background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 28px;
+        display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50;
+    }
+    .topheader .page-title { font-size: 1.25em; font-weight: 700; color: var(--navy-900); }
+    .topheader .page-subtitle { font-size: 0.82em; color: var(--text-muted); margin-top: 2px; }
+    .header-meta { font-size: 0.8em; color: var(--text-muted); text-align: right; }
+    .header-meta b { color: var(--navy-800); }
+    #sidebarToggle { display: none; }
+
+    .content { padding: 24px 28px 60px; flex: 1; }
+    .view-section { display: none; }
+    .view-section.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- Kartu / Container --- */
+    .container { background: var(--card); padding: 22px; border-radius: var(--radius); box-shadow: 0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04); margin-bottom: 20px; border: 1px solid var(--border); }
+    .container h3 { margin-top: 0; color: var(--navy-900); font-size: 1.05em; }
+
+    /* --- Dashboard: KPI & Chart --- */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 22px; }
+    .kpi-card { background: var(--card); border-radius: var(--radius); padding: 18px 20px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(16,24,40,0.06); position: relative; overflow: hidden; }
+    .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent, var(--navy-700)); }
+    .kpi-card .kpi-label { font-size: 0.78em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+    .kpi-card .kpi-value { font-size: 1.9em; font-weight: 700; color: var(--navy-900); line-height: 1.1; }
+    .kpi-card .kpi-sub { font-size: 0.78em; color: var(--text-muted); margin-top: 4px; }
+    .kpi-card.accent-gold { --accent: var(--gold-500); }
+    .kpi-card.accent-green { --accent: var(--green); }
+    .kpi-card.accent-red { --accent: var(--red); }
+
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px; }
+    .chart-card { background: var(--card); border-radius: var(--radius); padding: 18px 20px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(16,24,40,0.06); }
+    .chart-card h4 { margin: 0 0 14px; font-size: 0.95em; color: var(--navy-900); }
+    .chart-card .chart-wrap { position: relative; height: 260px; }
+    .dashboard-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .dashboard-empty .big-icon { font-size: 3em; margin-bottom: 10px; }
+
+    /* --- Dropdown Pencarian --- */
+    .dropdown { border: 1px solid var(--border); max-height: 180px; overflow-y: auto; position: absolute; background: #fff; z-index: 10; width: 420px; border-radius: 6px; box-shadow: 0 4px 12px rgba(16,24,40,0.12); }
+    .dropdown div { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #f0f2f5; font-size: 0.9em; }
+    .dropdown div:hover { background-color: #f4f6f9; }
+
+    /* --- Tombol & Form --- */
+    button { background: var(--navy-700); color: white; border: none; padding: 9px 16px; border-radius: 6px; cursor: pointer; margin-right: 6px; font-size: 0.88em; font-weight: 500; transition: background 0.15s; }
+    button:hover { background: var(--navy-900); }
+    input[type="text"], input[type="number"], input[type="file"], select {
+        border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 0.9em; font-family: inherit;
+    }
+    input[type="text"]:focus, select:focus { outline: none; border-color: var(--navy-700); }
+    label { font-size: 0.9em; }
+
+    /* --- Tabel (General) --- */
+    table { border-collapse: collapse; width: 100%; background: white; margin-top: 15px; font-size: 12px; }
+    table, th, td { border: 1px solid #d5dae2; }
+    th, td { padding: 7px 8px; vertical-align: middle; }
+    th { background: var(--navy-800); color: #fff; text-align: center !important; font-weight: 600; }
+    td { text-align: center; }
+    /* Header kolom Total berlatar terang: gunakan teks gelap agar kontras */
+    th.row-total, th.grand-total { color: #1b2733; }
+    #rekapTable table td:nth-child(2),
+    #rekapGolonganTable table td:nth-child(1),
+    .jabatan-name { text-align: center; }
+
     /* --- Warna Baris Rekapitulasi --- */
-    .row-total { background: #e2f0d9; font-weight: bold; }
-    .grand-total { background: #ffd966; font-weight: bold; }
-    .total-row { background: #34495e !important; color: white; font-size: 1.1em; font-weight: bold; }
-    
-    /* --- Navigasi & Menu --- */
-    #topBar { position: fixed; top: 15px; right: 20px; z-index: 1000; }
-    #subMenuDropdown { position: fixed; top: 55px; right: 20px; width: 250px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: none; z-index: 1000; overflow: hidden; }
-    .subMenuButton { width: 100%; padding: 12px; text-align: left; border: none; background: #444; color: white; cursor: pointer; border-bottom: 1px solid #555; }
-    .subMenuButton:hover { background: #555; }
+    .row-total { background: #eaf3e8; font-weight: bold; }
+    .grand-total { background: #fbe9c6; font-weight: bold; }
+    .total-row { background: var(--navy-900) !important; color: white; font-size: 1.05em; font-weight: bold; }
 
     /* --- Mode & Pengaturan Kolom --- */
     .mode-section { display: none; }
-    .collapse-header { cursor: pointer; padding: 10px; background: #e9ecef; border-radius: 5px; margin-bottom: 8px; font-weight: bold; }
-    .collapse-content { display: none; padding: 10px; border: 1px solid #ddd; margin-bottom: 10px; }
-    .draggable-item { padding: 4px; margin: 2px 0; background: #fafafa; border: 1px solid #ccc; display: flex; align-items: center; gap: 8px; cursor: grab; }
+    .mode-toggle-bar { display: flex; align-items: center; gap: 14px; }
+    .collapse-header { cursor: pointer; padding: 11px 14px; background: #eef1f6; border-radius: 7px; margin-bottom: 8px; font-weight: 600; font-size: 0.9em; color: var(--navy-800); }
+    .collapse-content { display: none; padding: 12px; border: 1px solid var(--border); border-radius: 7px; margin-bottom: 10px; }
+    .draggable-item { padding: 5px 8px; margin: 2px 0; background: #fafbfc; border: 1px solid var(--border); border-radius: 5px; display: flex; align-items: center; gap: 8px; cursor: grab; }
     .draggable-list { min-height: 50px; }
-    
+
     /* --- Komponen Visual Rekap Jabatan --- */
-    .section-header { background-color: #2c3e50 !important; color: #fff; font-weight: bold; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; }
-    .subtotal-badge { background: #e67e22; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; }
-    .info-box { background: #fff; padding: 10px; border-left: 4px solid #0056b3; margin: 10px 0; font-size: 0.9em; }
-    
+    .section-header { background-color: var(--navy-900) !important; color: #fff; font-weight: bold; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; font-size: 0.85em; letter-spacing: 0.02em; }
+    .subtotal-badge { background: var(--gold-500); color: var(--navy-900); padding: 2px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; }
+    .info-box { background: #f6f9fd; padding: 12px 14px; border-left: 4px solid var(--navy-700); margin: 10px 0; font-size: 0.88em; border-radius: 0 6px 6px 0; }
+
     /* --- Detail & List Nama --- */
-    details summary { font-weight: bold; color: #0056b3; cursor: pointer; text-align: left; }
+    details summary { font-weight: bold; color: var(--navy-700); cursor: pointer; text-align: left; }
     details ul { margin: 10px 0 0 20px; padding-left: 20px; list-style-type: decimal; font-size: 0.9em; text-align: left; }
-    .satker-subheader { margin: 12px 0 0 20px; padding: 3px 10px; background: #eef4fb; color: #0056b3; font-weight: bold; font-size: 0.85em; border-left: 3px solid #0056b3; border-radius: 3px; text-align: left; }
+    .satker-subheader { margin: 12px 0 0 20px; padding: 3px 10px; background: #eef4fb; color: var(--navy-700); font-weight: bold; font-size: 0.85em; border-left: 3px solid var(--navy-700); border-radius: 3px; text-align: left; }
     .satker-subheader:first-of-type { margin-top: 8px; }
-    .filter-container { background: #d4edda; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; }
+    details li { margin-bottom: 6px; }
+    .mk-detail { font-size: 0.88em; color: var(--text-muted); }
+    .mk-longest { font-weight: 500; font-size: 0.82em; color: var(--text-muted); }
+    .filter-container { background: #eef6f0; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; border: 1px solid #d3e8d8; }
 
     /* --- Tombol Download --- */
-    .download-buttons { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .download-buttons { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
     .btn-word { background: #2b579a; }
     .btn-word:hover { background: #1e3f73; }
     .btn-excel { background: #217346; }
     .btn-excel:hover { background: #17532f; }
     .btn-pdf { background: #c0392b; }
     .btn-pdf:hover { background: #962d21; }
+
+    /* --- Mobile --- */
+    @media (max-width: 900px) {
+        .sidebar { transform: translateX(-100%); transition: transform 0.2s; width: 240px; }
+        .sidebar.open { transform: translateX(0); }
+        .main-area { margin-left: 0; }
+        #sidebarToggle { display: inline-flex; }
+        .content { padding: 18px 14px 50px; }
+    }
 </style>
 </head>
 <body>
 
-<div id="topBar">
-    <button onclick="toggleSubMenu()">MENU REKAPITULASI ▼</button>
-</div>
-
-<div id="subMenuDropdown">
-    <button class="subMenuButton" onclick="toggleSubMenuSection('menu1')">Rekap Per Jenis Kelamin</button>
-    <button class="subMenuButton" onclick="toggleSubMenuSection('menu2')">Rekap Per Golongan</button>
-    <button class="subMenuButton" onclick="toggleSubMenuSection('menu3')">Rekap Jabatan & Eselon</button>
-    <button class="subMenuButton" onclick="toggleSubMenuSection('menu4')">Rekap Pendidikan</button>
-    <button class="subMenuButton" onclick="toggleSubMenuSection('menu6')">Rekap Eselon Kosong</button>
-    <button class="subMenuButton" onclick="toggleSubMenuSection('menu5')">Rekap Jabatan Kosong</button>
-    <button class="subMenuButton" onclick="closeAllMenus()">Tutup Menu</button>
-</div>
-
-<h2>Pencarian Pegawai + Rekap Jabatan</h2>
-
-<div class="container">
-    <label>Database (Excel): </label>
-    <input type="file" id="fileInput" accept=".xlsx, .xls"><br><br>
-    <input type="text" id="searchInput" placeholder="Cari Nama atau NIP..." style="width: 400px; padding: 10px;">
-    <div class="dropdown" id="dropdown"></div>
-    <button onclick="addSelectedPegawai()">Tambahkan Ke Daftar</button>
-</div>
-
-<div class="container">
-    <div class="collapse-header" onclick="toggleCollapse('gsheetSettings')">🔗 Sumber Data Otomatis (Google Sheets) ▼</div>
-    <div class="collapse-content" id="gsheetSettings">
-        <div class="info-box" style="font-size:0.85em; text-align:left;">
-            ✅ Aplikasi ini sudah terhubung ke Google Sheets data pegawai Kejaksaan Tinggi Aceh secara bawaan (lewat Apps Script).
-            Data otomatis termuat setiap aplikasi dibuka, lengkap dengan <b>waktu edit asli spreadsheet</b> — tanpa perlu setting apapun.<br><br>
-            <b>Untuk admin: cara memperbarui data</b> — edit langsung isi Google Sheets tersebut (tambah/ubah baris, dsb). Semua orang yang membuka aplikasi ini akan otomatis melihat data terbaru beserta waktu editnya.<br><br>
-            <b>Ingin memakai sumber data lain (khusus perangkat ini saja)?</b> Tempel link Google Sheets biasa ATAU link Web App Apps Script lain di kolom di bawah, lalu klik Simpan & Muat. Link Apps Script akan menampilkan waktu edit asli; link Google Sheets biasa tidak. Klik "Hapus Link" untuk kembali ke sumber data bawaan.
+<div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="logo-badge">⚖️</div>
+            <div class="brand-text">
+                <b>SIMKARI</b>
+                <span>Kejaksaan Tinggi Aceh</span>
+            </div>
         </div>
-        <label>Link Google Sheets: </label>
-        <input type="text" id="gsheetUrlInput" placeholder="Tempel link Google Sheets di sini..." style="width:420px; padding:8px;">
-        <button onclick="saveAndLoadGSheet()">💾 Simpan & Muat</button>
-        <button onclick="loadFromGSheet(true)">🔄 Muat Ulang Sekarang</button>
-        <button onclick="clearGSheetSource()">✖ Hapus Link</button>
-        <div id="gsheetStatus" style="font-size:0.85em; margin-top:8px; color:#555;"></div>
-    </div>
-</div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-nav="dashboard" onclick="showSection('dashboard')"><span class="icon">📊</span> Dashboard</button>
+            <button class="nav-item" data-nav="pencarian" onclick="showSection('pencarian')"><span class="icon">🔍</span> Pencarian &amp; Daftar</button>
 
-<div class="info-box" id="uploadInfoMenu3" style="display:none;">
-        <b>📅 Data terakhir diproses:</b> <span id="dateDisplayMenu3">-</span><br>
-        <b>🗓️ Update terakhir spreadsheet (asli):</b> <span id="dateDisplaySheetUpdated">-</span>
-    </div>
+            <div class="nav-group-label">Rekapitulasi</div>
+            <button class="nav-item" data-nav="menu1" onclick="showSection('menu1')"><span class="icon">🚻</span> Jenis Kelamin</button>
+            <button class="nav-item" data-nav="menu2" onclick="showSection('menu2')"><span class="icon">🎖️</span> Golongan</button>
+            <button class="nav-item" data-nav="menu3" onclick="showSection('menu3')"><span class="icon">🏛️</span> Jabatan &amp; Eselon</button>
+            <button class="nav-item" data-nav="menu4" onclick="showSection('menu4')"><span class="icon">🎓</span> Pendidikan</button>
+            <button class="nav-item" data-nav="menu6" onclick="showSection('menu6')"><span class="icon">⚠️</span> Eselon Kosong</button>
+            <button class="nav-item" data-nav="menu5" onclick="showSection('menu5')"><span class="icon">⚠️</span> Jabatan Kosong</button>
+            <button class="nav-item" data-nav="menu7" onclick="showSection('menu7')"><span class="icon">⏳</span> Masa Kerja</button>
 
-<div class="container">
-    <button onclick="showMode('list')">Mode Daftar</button>
-    <button onclick="showMode('table')">Mode Tabel</button>
-    <label style="margin-left:15px;"><input type="checkbox" id="boldNamaToggle" onchange="refreshView()"> <b>Bold Nama</b></label>
-</div>
+            <div class="nav-group-label">Pengaturan</div>
+            <button class="nav-item" data-nav="sumberdata" onclick="showSection('sumberdata')"><span class="icon">⚙️</span> Sumber Data</button>
+        </nav>
+        <div class="sidebar-footer">Sub Bagian Kepegawaian<br>Asisten Bidang Pembinaan</div>
+    </aside>
 
-<div class="container mode-section" id="listMode">
-    <div class="collapse-header" onclick="toggleCollapse('listSettings')">Pengaturan Kolom Daftar ▼</div>
-    <div class="collapse-content" id="listSettings"><div id="listOrder" class="draggable-list"></div></div>
-    <div id="listView"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar', 'Daftar Pegawai')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar', 'Daftar Pegawai')">⬇ PDF</button>
-    </div>
-    <table id="listExportTable" style="display:none"><thead><tr id="listExportHeader"></tr></thead><tbody id="listExportBody"></tbody></table>
-</div>
+    <div class="main-area">
+        <header class="topheader">
+            <div>
+                <button id="sidebarToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <span class="page-title" id="pageTitle">Dashboard</span>
+                <div class="page-subtitle" id="pageSubtitle">Ringkasan data kepegawaian</div>
+            </div>
+            <div class="header-meta">📅 Data terakhir diproses<br><b id="dateDisplayHeader">Belum ada data</b></div>
+        </header>
 
-<div class="container mode-section" id="tableMode">
-    <div class="collapse-header" onclick="toggleCollapse('tableSettings')">Pengaturan Kolom Tabel ▼</div>
-    <div class="collapse-content" id="tableSettings">
-        <label>Jumlah Kolom: <input type="number" id="tableColumns" value="2" min="1" max="6" onchange="generateTableSelectors()"></label>
-        <div id="tableSelectors" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
-    </div>
-    <div id="tableView" style="overflow-x:auto;">
-        <table><thead><tr id="tableHeader"><th>No</th></tr></thead><tbody id="tableBody"></tbody></table>
-    </div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel', 'Daftar Pegawai')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel', 'Daftar Pegawai')">⬇ PDF</button>
-    </div>
-</div>
+        <main class="content">
 
-<!-- Menu Rekapitulasi -->
-<div class="container" id="menu1" style="display:none;">
-    <h3>Rekapitulasi Jenis Kelamin (Per Satker)</h3>
-    <div id="rekapTable" style="overflow-x:auto;"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin', 'Rekapitulasi Jenis Kelamin')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin', 'Rekapitulasi Jenis Kelamin')">⬇ PDF</button>
-    </div>
-</div>
+            <!-- ============ DASHBOARD ============ -->
+            <section id="dashboard" class="view-section active">
+                <div id="dashboardEmptyState" class="container dashboard-empty">
+                    <div class="big-icon">📂</div>
+                    <h3>Belum ada data pegawai</h3>
+                    <p>Data akan otomatis termuat dari Google Sheets, atau unggah file Excel lewat menu <b>Sumber Data</b>.</p>
+                    <button onclick="showSection('sumberdata')">⚙️ Buka Menu Sumber Data</button>
+                </div>
+                <div id="dashboardContent" style="display:none;">
+                    <div class="container" style="padding:14px 20px; margin-bottom:18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <strong>🔍 Tampilkan data untuk:</strong>
+                        <select id="dashboardSatkerFilter" onchange="renderDashboard()" style="min-width:280px;">
+                            <option value="ALL">-- Keseluruhan (Semua Satker) --</option>
+                        </select>
+                    </div>
+                    <div class="kpi-grid" id="kpiGrid"></div>
+                    <div class="chart-grid">
+                        <div class="chart-card" style="grid-column: 1 / -1;">
+                            <h4 id="titleJK">👥 Komposisi Jenis Kelamin</h4>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                                <div><p style="text-align:center; font-weight:600; color:var(--navy-800); margin:0 0 8px; padding-bottom:4px; border-bottom:4px solid #0a2540;">Keseluruhan</p><div class="chart-wrap" style="height:240px;"><canvas id="chartJK_keseluruhan"></canvas></div></div>
+                                <div><p style="text-align:center; font-weight:600; color:var(--navy-800); margin:0 0 8px; padding-bottom:4px; border-bottom:4px solid #e08a00;">Jaksa</p><div class="chart-wrap" style="height:240px;"><canvas id="chartJK_jaksa"></canvas></div></div>
+                                <div><p style="text-align:center; font-weight:600; color:var(--navy-800); margin:0 0 8px; padding-bottom:4px; border-bottom:4px solid #1e8e5a;">TU</p><div class="chart-wrap" style="height:240px;"><canvas id="chartJK_tu"></canvas></div></div>
+                            </div>
+                        </div>
+                        <div class="chart-card" style="grid-column: 1 / -1;">
+                            <h4 id="titleGol">🎖️ Distribusi Golongan</h4>
+                            <div class="chart-wrap" style="height:360px;"><canvas id="chartGol"></canvas></div>
+                        </div>
+                        <div class="chart-card" style="grid-column: 1 / -1;">
+                            <h4 id="titlePend">🎓 Jenjang Pendidikan</h4>
+                            <div class="chart-wrap" style="height:300px;"><canvas id="chartPendidikan"></canvas></div>
+                        </div>
+                        <div class="chart-card" style="grid-column: 1 / -1;">
+                            <h4 id="titleSatker">🏢 Jumlah Pegawai</h4>
+                            <div class="chart-wrap" id="chartSatkerWrap" style="height:700px;"><canvas id="chartSatker"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-<div class="container" id="menu2" style="display:none;">
-    <h3>Rekapitulasi Per Golongan (Jaksa & TU)</h3>
-    <div id="rekapGolonganTable" style="overflow-x:auto;"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#rekapGolonganTable table', 'Rekap_Golongan', 'Rekapitulasi Per Golongan')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapGolonganTable table', 'Rekap_Golongan')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapGolonganTable table', 'Rekap_Golongan', 'Rekapitulasi Per Golongan')">⬇ PDF</button>
-    </div>
-</div>
+            <!-- ============ PENCARIAN & DAFTAR ============ -->
+            <section id="pencarian" class="view-section">
+                <div class="container">
+                    <h3>🔍 Cari &amp; Tambahkan Pegawai</h3>
+                    <input type="text" id="searchInput" placeholder="Cari Nama atau NIP..." style="width: 100%; max-width:420px; padding: 10px;">
+                    <div class="dropdown" id="dropdown"></div><br><br>
+                    <button onclick="addSelectedPegawai()">+ Tambahkan Ke Daftar</button>
+                </div>
 
-<div class="container" id="menu3" style="display:none;">
-    <h3>Rekapitulasi Jabatan & Eselon</h3>
-    
-    <div id="filterArea" class="filter-container" style="display:none;">
-        <strong>🔍 Filter Berdasarkan Satker:</strong>
-        <select id="satkerDropdown" onchange="applyJabatanFilter()" style="max-width: 400px;">
-            <option value="ALL">-- SEMUA SATKER (GABUNGAN) --</option>
-        </select>
-    </div>
-    <div id="resultsArea" style="margin-top:15px;"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon', 'Rekapitulasi Jabatan & Eselon')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon', 'Rekapitulasi Jabatan & Eselon')">⬇ PDF</button>
-    </div>
-</div>
+                <div class="container">
+                    <div class="mode-toggle-bar">
+                        <button onclick="showMode('list')">📋 Mode Daftar</button>
+                        <button onclick="showMode('table')">🗂️ Mode Tabel</button>
+                        <label><input type="checkbox" id="boldNamaToggle" onchange="refreshView()"> <b>Bold Nama</b></label>
+                    </div>
+                </div>
 
-<div class="container" id="menu4" style="display:none;">
-    <h3>Rekapitulasi Pendidikan (Per Satker)</h3>
-    <div class="info-box" style="font-size:0.85em;">
-        ℹ️ Jenjang pendidikan dideteksi otomatis dari gelar pada kolom Nama (mis. S.H., SH, S.Kom, M.H., MH, Dr., dr., A.Md, dsb).
-        Pegawai tanpa gelar akademik dikelompokkan sebagai <b>SLTA</b>.
-    </div>
-    <div id="rekapPendidikanTable" style="overflow-x:auto;"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan', 'Rekapitulasi Pendidikan')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan', 'Rekapitulasi Pendidikan')">⬇ PDF</button>
-    </div>
-</div>
+                <div class="container mode-section" id="listMode">
+                    <div class="collapse-header" onclick="toggleCollapse('listSettings')">Pengaturan Kolom Daftar ▼</div>
+                    <div class="collapse-content" id="listSettings"><div class="tmt-note info-box" style="font-size:0.82em;"></div><div id="listOrder" class="draggable-list"></div></div>
+                    <div id="listView"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromList('Daftar_Pegawai_Mode_Daftar', 'Daftar Pegawai')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#listExportTable', 'Daftar_Pegawai_Mode_Daftar')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromList('Daftar_Pegawai_Mode_Daftar', 'Daftar Pegawai')">⬇ PDF</button>
+                    </div>
+                    <table id="listExportTable" style="display:none"><thead><tr id="listExportHeader"></tr></thead><tbody id="listExportBody"></tbody></table>
+                </div>
 
-<div class="container" id="menu6" style="display:none;">
-    <h3>Rekapitulasi Eselon Kosong (Per Satker)</h3>
-    <div class="info-box" style="font-size:0.85em;">
-        ℹ️ Menampilkan jumlah jabatan struktural yang terisi dan kosong pada tiap tingkat Eselon (II/III/IV/V), berdasarkan kolom Eselon dan Jabatan pada data pegawai. Pegawai berstatus "Dikaryakan" tidak dihitung.
-    </div>
-    <div id="rekapEselonKosongTable" style="overflow-x:auto;"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong', 'Rekapitulasi Eselon Kosong')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong', 'Rekapitulasi Eselon Kosong')">⬇ PDF</button>
-    </div>
-</div>
+                <div class="container mode-section" id="tableMode">
+                    <div class="collapse-header" onclick="toggleCollapse('tableSettings')">Pengaturan Kolom Tabel ▼</div>
+                    <div class="collapse-content" id="tableSettings">
+                        <div class="tmt-note info-box" style="font-size:0.82em;"></div>
+                        <label>Jumlah Kolom: <input type="number" id="tableColumns" value="2" min="1" max="6" onchange="generateTableSelectors()"></label>
+                        <div id="tableSelectors" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+                    </div>
+                    <div id="tableView" style="overflow-x:auto;">
+                        <table><thead><tr id="tableHeader"><th>No</th></tr></thead><tbody id="tableBody"></tbody></table>
+                    </div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel', 'Daftar Pegawai')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#tableView table', 'Daftar_Pegawai_Mode_Tabel', 'Daftar Pegawai')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
 
-<div class="container" id="menu5" style="display:none;">
-    <h3>Rekapitulasi Jabatan Kosong</h3>
-    <div class="info-box" style="font-size:0.85em;">
-        ℹ️ Daftar jabatan struktural yang wajib ada berdasarkan tipe satuan kerja (Kejaksaan Tinggi / Kejaksaan Negeri Tipe A / Tipe B / Cabang Kejaksaan Negeri) namun belum terisi oleh pegawai manapun.
-    </div>
-    <div id="rekapJabatanKosongTable" style="overflow-x:auto;"></div>
-    <div class="download-buttons">
-        <button class="btn-word" onclick="downloadWordFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong', 'Rekapitulasi Jabatan Kosong')">⬇ Word</button>
-        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong')">⬇ Excel</button>
-        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong', 'Rekapitulasi Jabatan Kosong')">⬇ PDF</button>
+            <!-- ============ REKAPITULASI ============ -->
+            <section id="menu1" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Jenis Kelamin (Per Satker)</h3>
+                    <div id="rekapTable" style="overflow-x:auto;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin', 'Rekapitulasi Jenis Kelamin')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapTable table', 'Rekap_Jenis_Kelamin', 'Rekapitulasi Jenis Kelamin')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu2" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Per Golongan (Jaksa &amp; TU)</h3>
+                    <div id="rekapGolonganTable" style="overflow-x:auto;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#rekapGolonganTable table', 'Rekap_Golongan', 'Rekapitulasi Per Golongan')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapGolonganTable table', 'Rekap_Golongan')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapGolonganTable table', 'Rekap_Golongan', 'Rekapitulasi Per Golongan')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu3" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Jabatan &amp; Eselon</h3>
+                    <div id="filterArea" class="filter-container" style="display:none;">
+                        <strong>🔍 Filter Berdasarkan Satker:</strong>
+                        <select id="satkerDropdown" onchange="applyJabatanFilter()" style="max-width: 400px;">
+                            <option value="ALL">-- SEMUA SATKER (GABUNGAN) --</option>
+                        </select>
+                    </div>
+                    <div id="resultsArea" style="margin-top:15px;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon', 'Rekapitulasi Jabatan & Eselon')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#resultsArea table', 'Rekap_Jabatan_Eselon', 'Rekapitulasi Jabatan & Eselon')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu4" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Pendidikan (Per Satker)</h3>
+                    <div class="info-box">
+                        ℹ️ Jenjang pendidikan dideteksi otomatis dari gelar pada kolom Nama (mis. S.H., SH, S.Kom, M.H., MH, Dr., dr., A.Md, dsb).
+                        Pegawai tanpa gelar akademik dikelompokkan sebagai <b>SLTA</b>.
+                    </div>
+                    <div id="rekapPendidikanTable" style="overflow-x:auto;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan', 'Rekapitulasi Pendidikan')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapPendidikanTable table', 'Rekap_Pendidikan', 'Rekapitulasi Pendidikan')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu6" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Eselon Kosong (Per Satker)</h3>
+                    <div class="info-box">
+                        ℹ️ Menampilkan jumlah jabatan struktural yang terisi dan kosong pada tiap tingkat Eselon (II/III/IV/V), berdasarkan kolom Eselon dan Jabatan pada data pegawai. Pegawai berstatus "Dikaryakan" tidak dihitung.
+                    </div>
+                    <div id="rekapEselonKosongTable" style="overflow-x:auto;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong', 'Rekapitulasi Eselon Kosong')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapEselonKosongTable table', 'Rekap_Eselon_Kosong', 'Rekapitulasi Eselon Kosong')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu5" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Jabatan Kosong</h3>
+                    <div class="info-box">
+                        ℹ️ Daftar jabatan struktural yang wajib ada berdasarkan tipe satuan kerja (Kejaksaan Tinggi / Kejaksaan Negeri Tipe A / Tipe B / Cabang Kejaksaan Negeri) namun belum terisi oleh pegawai manapun.
+                    </div>
+                    <div id="rekapJabatanKosongTable" style="overflow-x:auto;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong', 'Rekapitulasi Jabatan Kosong')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapJabatanKosongTable table', 'Rekap_Jabatan_Kosong', 'Rekapitulasi Jabatan Kosong')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu7" class="view-section">
+                <div class="container">
+                    <h3>Rekapitulasi Masa Kerja (Lama Menjabat)</h3>
+                    <div class="info-box">
+                        ℹ️ Tampilan sama seperti Rekap Jabatan &amp; Eselon (per Eselon / jabatan, klik untuk membuka daftar nama). Di dalam tiap daftar, pegawai diurutkan dari <b>lama menjabat paling lama</b> (paling atas) berdasarkan kolom "Lama Menjabat (TMT)", lengkap dengan Jabatan dan Gol/Pangkat.
+                    </div>
+                    <div class="filter-container">
+                        <strong>🔍 Filter Berdasarkan Satker:</strong>
+                        <select id="masaKerjaSatkerDropdown" onchange="generateRekapMasaKerja()" style="max-width: 400px;">
+                            <option value="ALL">-- SEMUA SATKER (GABUNGAN) --</option>
+                        </select>
+                    </div>
+                    <div id="rekapMasaKerjaArea" style="overflow-x:auto;"></div>
+                    <div class="download-buttons">
+                        <button class="btn-word" onclick="downloadWordFromTables('#rekapMasaKerjaArea table', 'Rekap_Masa_Kerja', 'Rekapitulasi Masa Kerja')">⬇ Word</button>
+                        <button class="btn-excel" onclick="downloadExcelFromTables('#rekapMasaKerjaArea table', 'Rekap_Masa_Kerja')">⬇ Excel</button>
+                        <button class="btn-pdf" onclick="downloadPDFFromTables('#rekapMasaKerjaArea table', 'Rekap_Masa_Kerja', 'Rekapitulasi Masa Kerja')">⬇ PDF</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ SUMBER DATA ============ -->
+            <section id="sumberdata" class="view-section">
+                <div class="container">
+                    <h3>📤 Upload Excel Manual</h3>
+                    <label>Database (Excel): </label>
+                    <input type="file" id="fileInput" accept=".xlsx, .xls">
+                </div>
+
+                <div class="container">
+                    <h3>🔗 Sumber Data Otomatis (Google Sheets)</h3>
+                    <div class="info-box">
+                        ✅ Aplikasi ini sudah terhubung ke Google Sheets data pegawai Kejaksaan Tinggi Aceh secara bawaan.
+                        Data otomatis termuat setiap aplikasi dibuka, tanpa perlu setting apapun.<br><br>
+                        <b>Untuk admin: cara memperbarui data</b> — buka Google Sheets tersebut, lalu <b>File → Import → Replace current sheet</b> dengan file Excel terbaru. Semua orang yang membuka aplikasi ini akan otomatis melihat data terbaru.<br><br>
+                        <b>Ingin memakai sumber data lain (khusus perangkat ini saja)?</b> Tempel link Google Sheets lain di kolom di bawah (pastikan sudah di-share "Anyone with the link"), lalu klik Simpan & Muat. Klik "Hapus Link" untuk kembali ke sumber data bawaan.
+                    </div>
+                    <label>Link Google Sheets: </label><br>
+                    <input type="text" id="gsheetUrlInput" placeholder="Tempel link Google Sheets di sini..." style="width:100%; max-width:460px; padding:8px; margin:8px 0;"><br>
+                    <button onclick="saveAndLoadGSheet()">💾 Simpan & Muat</button>
+                    <button onclick="loadFromGSheet(true)">🔄 Muat Ulang Sekarang</button>
+                    <button onclick="clearGSheetSource()">✖ Hapus Link</button>
+                    <div id="gsheetStatus" style="font-size:0.85em; margin-top:8px; color:#555;"></div>
+                </div>
+            </section>
+
+        </main>
     </div>
 </div>
 
@@ -246,19 +448,11 @@ let selectedPegawai = [];
 let allHeaders = [];
 let satkerList = [];
 let lastProcessDate = "";
-let sheetLastUpdated = ""; // Waktu edit ASLI spreadsheet (dari Apps Script), beda dengan lastProcessDate
 
-// Link sumber data bawaan aplikasi (data pegawai Kejaksaan Tinggi Aceh).
+// Link Google Sheets bawaan aplikasi (data pegawai Kejaksaan Tinggi Aceh).
 // Semua orang yang membuka aplikasi ini otomatis memuat data dari sini,
 // kecuali mereka mengganti link-nya sendiri lewat panel "Sumber Data Otomatis" di browsernya masing-masing.
-// Memakai Web App Apps Script (bukan link CSV biasa) supaya bisa sekaligus mengambil
-// waktu edit ASLI spreadsheet, bukan hanya waktu aplikasi memproses data.
-const DEFAULT_GSHEET_URL = "https://script.google.com/macros/s/AKfycbzPi27WiEH2pkDDsUNf3v8rS9vkoX577T9ePR5lqFvrjfM1-aaV8CRL75Yh6JfNBXbp6g/exec";
-
-// Mendeteksi apakah sebuah link adalah Web App Apps Script (bukan link Google Sheets biasa)
-function isAppsScriptUrl(url) {
-    return /script\.google\.com\/macros/.test(url || "");
-}
+const DEFAULT_GSHEET_URL = "https://docs.google.com/spreadsheets/d/1W0Q5ciBSGLmVgEwqwI-wLyr5zb3a9jeqW2pN5qqTV8Y/edit?usp=drive_link";
 
 // --- Parsing NIP/NRP ---
 function parseNipNrp(raw) {
@@ -295,25 +489,43 @@ function findKey(keys) {
 }
 
 // === UI & MENU ===
-function toggleSubMenu() {
-    let m = document.getElementById("subMenuDropdown");
-    m.style.display = (m.style.display === "block") ? "none" : "block";
-}
+// === NAVIGASI SIDEBAR ===
+const SECTION_TITLES = {
+    dashboard: ["Dashboard", "Ringkasan data kepegawaian"],
+    pencarian: ["Pencarian & Daftar Pegawai", "Cari, pilih, dan susun daftar pegawai"],
+    menu1: ["Rekap Jenis Kelamin", "Rekapitulasi per satuan kerja"],
+    menu2: ["Rekap Golongan", "Rekapitulasi Jaksa & Tata Usaha"],
+    menu3: ["Rekap Jabatan & Eselon", "Struktural, fungsional, pelaksana, dan dikaryakan"],
+    menu4: ["Rekap Pendidikan", "Jenjang pendidikan per satuan kerja"],
+    menu6: ["Rekap Eselon Kosong", "Jabatan terisi & kosong per tingkat eselon"],
+    menu5: ["Rekap Jabatan Kosong", "Jabatan struktural yang belum terisi"],
+    menu7: ["Rekap Masa Kerja", "Lama menjabat, dari yang paling lama"],
+    sumberdata: ["Sumber Data", "Upload Excel manual atau Google Sheets otomatis"]
+};
 
-function closeAllMenus() {
-    document.getElementById("subMenuDropdown").style.display = "none";
-    document.querySelectorAll('.container[id^="menu"]').forEach(el => el.style.display = "none");
-}
+function showSection(id) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+    let target = document.getElementById(id);
+    if (target) target.classList.add('active');
 
-function toggleSubMenuSection(id) {
-    closeAllMenus();
-    document.getElementById(id).style.display = "block";
-    if(id === 'menu1') generateRekapJK();
-    if(id === 'menu2') generateRekapGol();
-    if(id === 'menu3') generateRekapJabatan();
-    if(id === 'menu4') generateRekapPendidikan();
-    if(id === 'menu6') generateRekapEselonKosong();
-    if(id === 'menu5') generateRekapJabatanKosong();
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    let navBtn = document.querySelector(`.nav-item[data-nav="${id}"]`);
+    if (navBtn) navBtn.classList.add('active');
+
+    let titles = SECTION_TITLES[id] || [id, ""];
+    document.getElementById('pageTitle').textContent = titles[0];
+    document.getElementById('pageSubtitle').textContent = titles[1];
+
+    if (id === 'dashboard') renderDashboard();
+    if (id === 'menu1') generateRekapJK();
+    if (id === 'menu2') generateRekapGol();
+    if (id === 'menu3') generateRekapJabatan();
+    if (id === 'menu4') generateRekapPendidikan();
+    if (id === 'menu6') generateRekapEselonKosong();
+    if (id === 'menu5') generateRekapJabatanKosong();
+    if (id === 'menu7') generateRekapMasaKerja();
+
+    document.getElementById('sidebar').classList.remove('open');
 }
 
 function toggleCollapse(id) {
@@ -367,6 +579,9 @@ function addSelectedPegawai() {
 }
 
 // === RENDER DAFTAR & TABEL ===
+// Data baris Mode Daftar untuk ekspor Word/PDF sebagai paragraf biasa: [[{t:teks, b:tebal}, ...], ...]
+let listExportParts = [];
+
 function renderList() {
     let order = Array.from(document.querySelectorAll('#listOrder .draggable-item'))
         .filter(i => i.querySelector('input').checked).map(i => i.dataset.header);
@@ -378,8 +593,21 @@ function renderList() {
     let expBody = document.getElementById('listExportBody');
     expHead.innerHTML = '<th>No</th>' + order.map(h => `<th>${h}</th>`).join('');
     expBody.innerHTML = '';
+    listExportParts = [];
 
     selectedPegawai.forEach((p, i) => {
+        let parts = [{ t: `${i+1}. `, b: false }];
+        order.map(h => {
+            let val = p[h] || '';
+            if(h === 'NIP') val = val ? `NIP. ${val}` : '';
+            else if(h === 'NRP') val = val ? `NRP. ${val}` : '';
+            return { val: val.toString(), b: bold && h.toLowerCase().includes('nama') };
+        }).filter(x => x.val !== '').forEach((x, k) => {
+            if (k > 0) parts.push({ t: ', ', b: false });
+            parts.push({ t: x.val, b: x.b });
+        });
+        listExportParts.push(parts);
+
         let text = order.map(h => {
             let val = p[h] || '';
             if(h === 'NIP') return val ? `NIP. ${val}` : '';
@@ -456,14 +684,18 @@ function generateRekapJK() {
 }
 
 // === REKAP GOLONGAN ===
+// Daftar golongan yang berlaku untuk Jaksa vs Tata Usaha (dipakai Rekap Golongan & Dashboard)
+const GOLONGAN_JAKSA_LIST = ["IV/d", "IV/c", "IV/b", "IV/a", "III/d", "III/c", "III/b", "III/a"];
+const GOLONGAN_TU_LIST = ["IV/b", "IV/a", "III/d", "III/c", "III/b", "III/a", "II/d", "II/c", "II/b", "II/a", "I/d"];
+
 function generateRekapGol() {
     let hGol = findKey(['Gol/Pangkat']);
     let hSat = findKey(['Satker']);
     let data = {};
     
     // Penambahan IV/d pada Jaksa
-    const gJaksa = ["IV/d", "IV/c", "IV/b", "IV/a", "III/d", "III/c", "III/b", "III/a"];
-    const gTU = ["IV/b", "IV/a", "III/d", "III/c", "III/b", "III/a", "II/d", "II/c", "II/b", "II/a", "I/d"];
+    const gJaksa = GOLONGAN_JAKSA_LIST;
+    const gTU = GOLONGAN_TU_LIST;
     
     pegawai.forEach(p => {
         let s = p[hSat] || "Lainnya";
@@ -699,9 +931,7 @@ function applyJabatanFilter() {
         filteredData = pegawai.filter(row => row[hSat] === selectedSatker);
     }
 
-    document.getElementById('uploadInfoMenu3').style.display = "block";
-    document.getElementById('dateDisplayMenu3').innerText = lastProcessDate || new Date().toLocaleString('id-ID');
-    document.getElementById('dateDisplaySheetUpdated').innerText = sheetLastUpdated || '(tidak tersedia — sumber data bukan Apps Script)';
+    updateHeaderDate();
 
     const cols = {
         nama: findKey(['Nama']),
@@ -1228,6 +1458,109 @@ function generateRekapJabatanKosong() {
     container.innerHTML = html;
 }
 
+// === REKAP MASA KERJA ===
+// Mengubah teks "8 thn 4 bln 29 hari" menjadi jumlah hari (untuk pengurutan). Tidak terbaca -> -1 (paling bawah).
+function parseLamaMenjabat(txt) {
+    let m = (txt || '').toString().match(/(\d+)\s*thn\s*(\d+)\s*bln\s*(\d+)\s*hari/i);
+    if (!m) return -1;
+    return parseInt(m[1], 10) * 365 + parseInt(m[2], 10) * 30 + parseInt(m[3], 10);
+}
+
+function generateRekapMasaKerja() {
+    const area = document.getElementById('rekapMasaKerjaArea');
+    if (!pegawai || pegawai.length === 0) {
+        area.innerHTML = "<p style='color:#c00'>Belum ada data yang diupload.</p>";
+        return;
+    }
+    const hNama = findKey(['Nama']);
+    const hJab = findKey(['Jabatan']);
+    const hGol = findKey(['Gol/Pangkat', 'Golongan', 'Pangkat']);
+    const hSat = findKey(['Satker']);
+    const hEse = findKey(['Eselon']);
+    const hStat = findKey(['Status Pegawai', 'Status']);
+    const hTmt = allHeaders.find(h => /lama\s*menjabat|tmt/i.test(h)) || 'Lama Menjabat (TMT)';
+
+    // Dropdown filter satker (pilihan sebelumnya dipertahankan)
+    let sel = document.getElementById('masaKerjaSatkerDropdown');
+    let prev = sel.value || 'ALL';
+    let satkerList = [...new Set(pegawai.map(p => p[hSat]).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="ALL">-- SEMUA SATKER (GABUNGAN) --</option>' + satkerList.map(x => `<option value="${x}">${x}</option>`).join('');
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    const isAll = sel.value === 'ALL';
+    const data = isAll ? pegawai : pegawai.filter(p => p[hSat] === sel.value);
+
+    // Pengelompokan identik dengan Rekap Jabatan & Eselon
+    const res = { struktural: {}, fungsional: {}, cpns: {}, pelaksana: {}, dikaryakan: [] };
+    const add = (bucket, key, item) => { (bucket[key] = bucket[key] || []).push(item); };
+    data.forEach(p => {
+        const jabRaw = p[hJab] ? p[hJab].toString() : '';
+        const eselon = p[hEse] ? p[hEse].toString().trim() : '';
+        const status = p[hStat] ? p[hStat].toString().toLowerCase().trim() : '';
+        const gol = p[hGol] ? p[hGol].toString().toLowerCase() : '';
+        const item = { p, hari: parseLamaMenjabat(p[hTmt]) };
+
+        if (status === 'dikaryakan') { res.dikaryakan.push(item); return; }
+        if (eselon !== '' && eselon !== '-') { add(res.struktural, 'Jabatan Struktural ' + eselon, item); return; }
+        const cleaned = cleanJabatanName(jabRaw);
+        if (/keahlian|keterampilan|calon jaksa/i.test(jabRaw)) { add(res.cpns, cleaned, item); return; }
+        if (pelaksanaList.some(pl => cleaned.toLowerCase().includes(pl.toLowerCase()))) { add(res.pelaksana, cleaned, item); return; }
+        if (gol.includes('jaksa')) add(res.fungsional, 'Jaksa Fungsional', item);
+        else add(res.fungsional, cleaned, item);
+    });
+
+    // Daftar pegawai di dalam dropdown: masa menjabat paling lama di paling atas
+    const byTenure = (a, b) => b.hari - a.hari || (a.p[hNama] || '').toString().localeCompare((b.p[hNama] || '').toString(), 'id');
+    const renderList = (items) => {
+        const sorted = [...items].sort(byTenure);
+        return '<ul>' + sorted.map(({ p }) => {
+            const detail = [
+                'Jabatan: ' + (p[hJab] || '-'),
+                'Gol/Pangkat: ' + (p[hGol] || '-'),
+                'Lama Menjabat (TMT): ' + (p[hTmt] || '-')
+            ];
+            if (isAll) detail.push('Satker: ' + (p[hSat] || '-'));
+            return `<li><b>${p[hNama] || 'Tanpa Nama'}</b><br><span class="mk-detail">${detail.join(' &middot; ')}</span></li>`;
+        }).join('') + '</ul>';
+    };
+    const longest = (items) => {
+        const m = items.reduce((a, b) => (b.hari > a.hari ? b : a), items[0]);
+        return m.hari >= 0 ? (m.p[hTmt] || '') : '';
+    };
+
+    let globalNo = 1, grandTotal = 0;
+    const makeTable = (title, bucket, isFungsional) => {
+        let sectionCount = 0;
+        Object.values(bucket).forEach(arr => sectionCount += arr.length);
+        let html = `<table><thead>
+            <tr><th colspan="3"><div class="section-header"><span>${title}</span><span class="subtotal-badge">JUMLAH: ${sectionCount}</span></div></th></tr>
+            <tr><th width="50">No</th><th>Jabatan</th><th width="100">Total</th></tr>
+        </thead><tbody>`;
+        let keys = Object.keys(bucket);
+        if (isFungsional) keys.sort((a, b) => (a === 'Jaksa Fungsional' ? -1 : b === 'Jaksa Fungsional' ? 1 : a.localeCompare(b)));
+        else keys.sort();
+        keys.forEach(key => {
+            const items = bucket[key];
+            if (items.length === 0) return;
+            grandTotal += items.length;
+            const lg = longest(items);
+            html += `<tr><td>${globalNo++}</td><td class="jabatan-name"><details><summary>${key}${lg ? ` <span class="mk-longest">&middot; terlama ${lg}</span>` : ''}</summary>${renderList(items)}</details></td><td><b>${items.length}</b></td></tr>`;
+        });
+        return html + '</tbody></table>';
+    };
+
+    let html = '';
+    html += makeTable('JABATAN STRUKTURAL', res.struktural);
+    html += makeTable('JABATAN FUNGSIONAL TERTENTU', res.fungsional, true);
+    html += makeTable('FUNGSIONAL TERTENTU CPNS', res.cpns);
+    html += makeTable('JABATAN PELAKSANA', res.pelaksana);
+
+    grandTotal += res.dikaryakan.length;
+    html += `<table><thead><tr><th colspan="3"><div class="section-header"><span>PEGAWAI DIKARYAKAN</span><span class="subtotal-badge">JUMLAH: ${res.dikaryakan.length}</span></div></th></tr></thead>
+        <tbody><tr><td>${globalNo++}</td><td class="jabatan-name"><details><summary>Daftar Pegawai Dikaryakan</summary>${res.dikaryakan.length ? renderList(res.dikaryakan) : ''}</details></td><td><b>${res.dikaryakan.length}</b></td></tr></tbody></table>`;
+    html += `<table><tr class="total-row"><td colspan="2" style="text-align:right; padding-right:20px;">JUMLAH TOTAL PEGAWAI :</td><td width="100">${grandTotal}</td></tr></table>`;
+    area.innerHTML = html;
+}
+
 // === PENYIMPANAN URUTAN & CHECKLIST ===
 function saveColumnSettings() {
     // Mode Daftar
@@ -1355,7 +1688,17 @@ function getDragAfterElement(container, y) {
 }
 
 // === GENERATE PENGATURAN KOLOM ===
+// Menandai ketersediaan kolom "Lama Menjabat (TMT)" pada panel pengaturan kolom
+function updateTmtNote() {
+    let tmt = allHeaders.find(h => /lama\s*menjabat|tmt/i.test(h));
+    let msg = tmt
+        ? `✅ Kolom <b>${tmt}</b> tersedia di daftar centang di bawah (urutan daftar mengikuti abjad; geser untuk mengatur posisinya).`
+        : `⚠️ Kolom "Lama Menjabat (TMT)" tidak ditemukan pada data yang dimuat. Pastikan kolom tersebut ada di file Excel / Google Sheets.`;
+    document.querySelectorAll('.tmt-note').forEach(el => { el.innerHTML = msg; });
+}
+
 function generateListOrder() {
+    updateTmtNote();
     let container = document.getElementById('listOrder');
     container.innerHTML = '';
     let hs = [...allHeaders];
@@ -1426,6 +1769,98 @@ function downloadWordFromTables(selectorAll, filename, title) {
     document.body.removeChild(link);
 }
 
+function escHtml(t) {
+    return (t || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Word: setiap pegawai = satu paragraf biasa bernomor (bukan tabel, bukan teks tersembunyi)
+function buildListWordHtml(title) {
+    let paras = listExportParts.map(parts =>
+        '<p style="margin:0 0 6pt 0; text-indent:-18pt; padding-left:18pt; text-align:justify;">' +
+        parts.map(pt => pt.b ? `<strong>${escHtml(pt.t)}</strong>` : escHtml(pt.t)).join('') + '</p>'
+    ).join('\n');
+    return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8"><title>${escHtml(title)}</title>
+<style>
+    body { font-family: Arial, sans-serif; font-size: 11pt; }
+    p { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.3; }
+    h3 { font-family: Arial, sans-serif; font-size: 13pt; }
+</style>
+</head><body><h3>${escHtml(title)}</h3>
+${paras}
+</body></html>`;
+}
+
+function downloadWordFromList(filename, title) {
+    if (!listExportParts.length) { alert('Tidak ada data untuk diunduh.'); return; }
+    let blob = new Blob(['\ufeff', buildListWordHtml(title)], { type: 'application/msword' });
+    let link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + '.doc';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// PDF: teks mengalir sebagai paragraf bernomor (nomor menggantung), nama tebal jika "Bold Nama" aktif
+function drawListPdf(doc, title) {
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    const ml = 18, mr = 18, mt = 20, mb = 18, lh = 5.4, maxX = W - mr;
+    let y = mt;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(title || 'Daftar Pegawai', ml, y);
+    y += 10;
+    doc.setFontSize(10.5);
+
+    listExportParts.forEach(parts => {
+        // Nomor di margin kiri; isi teks mengalir di sebelah kanannya (nomor menggantung)
+        doc.setFont('helvetica', 'normal');
+        const numText = parts[0].t.trim();
+        const x0 = ml + doc.getTextWidth(parts[0].t);
+
+        // 1) Pecah menjadi kata/spasi bergaya, lalu susun per baris berdasarkan lebar
+        const tokens = [];
+        parts.slice(1).forEach(pt => pt.t.split(/(\s+)/).filter(w => w !== '').forEach(w => tokens.push({ t: w, b: pt.b, sp: /^\s+$/.test(w) })));
+        const lines = [[]];
+        let x = x0;
+        tokens.forEach(tk => {
+            doc.setFont('helvetica', tk.b ? 'bold' : 'normal');
+            const wd = doc.getTextWidth(tk.t);
+            let line = lines[lines.length - 1];
+            if (tk.sp) { if (line.length) { line.push(tk); x += wd; } return; }
+            if (x + wd > maxX && line.some(t => !t.sp)) {
+                while (line.length && line[line.length - 1].sp) line.pop();   // buang spasi di ujung baris
+                line = []; lines.push(line); x = x0;
+            }
+            line.push(tk); x += wd;
+        });
+
+        // 2) Gambar tiap baris sebagai rangkaian teks utuh (satu run per gaya) agar spasi dikelola pembaca PDF
+        lines.forEach((line, li) => {
+            if (y > H - mb) { doc.addPage(); y = mt; }
+            if (li === 0) { doc.setFont('helvetica', 'normal'); doc.text(numText, ml, y); }
+            let cx = x0, i = 0;
+            while (i < line.length) {
+                const b = line[i].b; let run = '';
+                while (i < line.length && (line[i].b === b || line[i].sp)) { run += line[i].t; i++; }
+                doc.setFont('helvetica', b ? 'bold' : 'normal');
+                doc.text(run, cx, y);
+                cx += doc.getTextWidth(run);
+            }
+            y += lh;
+        });
+        y += 1.6;
+    });
+}
+
+function downloadPDFFromList(filename, title) {
+    if (!listExportParts.length) { alert('Tidak ada data untuk diunduh.'); return; }
+    const { jsPDF } = window.jspdf;
+    let doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    drawListPdf(doc, title);
+    doc.save(filename + '.pdf');
+}
+
 function downloadExcelFromTables(selectorAll, filename) {
     let tables = document.querySelectorAll(selectorAll);
     if (!tables.length) { alert('Tidak ada data untuk diunduh.'); return; }
@@ -1468,10 +1903,395 @@ function downloadPDFFromTables(selectorAll, filename, title) {
 
 // === UPLOAD ===
 
-// Memproses workbook (dari file Excel, CSV Google Sheets, ATAU JSON Apps Script) menjadi data pegawai.
+// Memproses workbook (dari file Excel ATAU dari CSV Google Sheets) menjadi data pegawai.
 // Dipakai bersama oleh upload manual dan pemuatan otomatis dari Google Sheets agar konsisten.
-// realUpdateTime (opsional): waktu edit ASLI spreadsheet, kalau sumbernya Apps Script.
-function processWorkbook(wb, source, realUpdateTime) {
+function updateHeaderDate() {
+    let el = document.getElementById('dateDisplayHeader');
+    if (el) el.innerText = lastProcessDate || 'Belum ada data';
+}
+
+// === DASHBOARD ===
+let dashboardCharts = {}; // menyimpan instance Chart.js agar bisa di-destroy sebelum digambar ulang
+
+function isJaksaGol(rawGol) {
+    return (rawGol || "").toString().toLowerCase().includes("jaksa");
+}
+
+function populateDashboardSatkerFilter(hSat) {
+    let sel = document.getElementById('dashboardSatkerFilter');
+    if (!sel) return;
+    let prevValue = sel.value || "ALL";
+    let satkerList = [...new Set(pegawai.map(p => p[hSat]).filter(Boolean))].sort();
+    sel.innerHTML = `<option value="ALL">-- Keseluruhan (Semua Satker) --</option>` +
+        satkerList.map(s => `<option value="${s}">${s}</option>`).join('');
+    if ([...sel.options].some(o => o.value === prevValue)) sel.value = prevValue;
+}
+
+function renderDashboard() {
+    let emptyState = document.getElementById('dashboardEmptyState');
+    let content = document.getElementById('dashboardContent');
+    if (!pegawai || pegawai.length === 0) {
+        emptyState.style.display = 'block';
+        content.style.display = 'none';
+        return;
+    }
+    emptyState.style.display = 'none';
+    content.style.display = 'block';
+
+    const hNama = findKey(['Nama']);
+    const hJab = findKey(['Jabatan']);
+    const hSat = findKey(['Satker']);
+    const hGol = findKey(['Golongan', 'Pangkat']);
+    const hStat = findKey(['Status Pegawai', 'Status']);
+    const hEse = findKey(['Eselon']);
+
+    populateDashboardSatkerFilter(hSat);
+    let selectedSatker = document.getElementById('dashboardSatkerFilter')?.value || "ALL";
+    let dataPegawai = selectedSatker === "ALL" ? pegawai : pegawai.filter(p => p[hSat] === selectedSatker);
+
+    // --- Hitung KPI dasar ---
+    let totalPegawai = dataPegawai.length;
+    let jkCount = { L: 0, P: 0 };
+    let dikaryakanCount = 0;
+    let strukturalCount = 0;
+    let satkerSet = new Set();
+
+    dataPegawai.forEach(p => {
+        let jk = parseData(p).jk;
+        jkCount[jk] = (jkCount[jk] || 0) + 1;
+        let status = (p[hStat] || "").toString().toLowerCase().trim();
+        if (status === "dikaryakan") dikaryakanCount++;
+        let eselon = (p[hEse] || "").toString().trim();
+        if (eselon !== "" && eselon !== "-") strukturalCount++;
+        if (p[hSat]) satkerSet.add(p[hSat]);
+    });
+
+    // --- Rincian Jenis Kelamin: Keseluruhan / Jaksa / TU ---
+    let jkRinci = {
+        Keseluruhan: { L: 0, P: 0 },
+        Jaksa: { L: 0, P: 0 },
+        TU: { L: 0, P: 0 }
+    };
+    dataPegawai.forEach(p => {
+        let jk = parseData(p).jk;
+        jkRinci.Keseluruhan[jk]++;
+        if (isJaksaGol(p[hGol])) jkRinci.Jaksa[jk]++;
+        else jkRinci.TU[jk]++;
+    });
+
+    // --- Rincian Golongan: per tingkat golongan, dipisah Jaksa / TU dan Laki-laki / Perempuan ---
+    let golRinci = { Jaksa: { L: {}, P: {} }, TU: { L: {}, P: {} } };
+    dataPegawai.forEach(p => {
+        let g = extractGolongan(p[hGol]);
+        let grp = isJaksaGol(p[hGol]) ? 'Jaksa' : 'TU';
+        let jk = parseData(p).jk;
+        golRinci[grp][jk][g] = (golRinci[grp][jk][g] || 0) + 1;
+    });
+    // Urutan tingkat golongan: gabungan daftar Jaksa & TU (tertinggi ke terendah), lalu golongan lain yang muncul di data
+    let golOrderUnion = [...new Set([...GOLONGAN_JAKSA_LIST, ...GOLONGAN_TU_LIST])];
+    ['Jaksa', 'TU'].forEach(grp => ['L', 'P'].forEach(jk => {
+        Object.keys(golRinci[grp][jk]).forEach(g => { if (!golOrderUnion.includes(g)) golOrderUnion.push(g); });
+    }));
+    // Tampilkan hanya golongan yang ada pegawainya
+    let golOrder = golOrderUnion.filter(g =>
+        (golRinci.Jaksa.L[g] || 0) + (golRinci.Jaksa.P[g] || 0) + (golRinci.TU.L[g] || 0) + (golRinci.TU.P[g] || 0) > 0);
+
+    // --- Jenjang Pendidikan: dipisah Jaksa / TU (logic gelar sama dengan Rekap Pendidikan) ---
+    let pendRinci = {
+        Jaksa: { S3: 0, S2: 0, S1: 0, D3: 0, SLTA: 0 },
+        TU: { S3: 0, S2: 0, S1: 0, D3: 0, SLTA: 0 }
+    };
+    dataPegawai.forEach(p => {
+        let j = extractJenjangPendidikan(p[hNama]);
+        let grp = isJaksaGol(p[hGol]) ? 'Jaksa' : 'TU';
+        pendRinci[grp][j] = (pendRinci[grp][j] || 0) + 1;
+    });
+
+    // --- Jumlah Pegawai per Satker (seluruh satker), dipisah Laki-laki / Perempuan ---
+    let satkerRinci = {};
+    dataPegawai.forEach(p => {
+        let sName = p[hSat] || "Lainnya";
+        if (!satkerRinci[sName]) satkerRinci[sName] = { L: 0, P: 0 };
+        satkerRinci[sName][parseData(p).jk]++;
+    });
+    let satkerRows = Object.entries(satkerRinci).sort((x, y) => (y[1].L + y[1].P) - (x[1].L + x[1].P));
+
+    // --- Hitung ringkasan Jabatan Kosong (memakai data referensi yang sama dengan menu terkait) ---
+    let totalJabatanKosong = 0;
+    try {
+        let dataBySatker = {};
+        pegawai.forEach(p => {
+            let status = (p[hStat] || "").toString().toLowerCase().trim();
+            if (status === "dikaryakan") return;
+            let key = normalizeSatkerName(p[hSat]);
+            if (!dataBySatker[key]) dataBySatker[key] = [];
+            if (p[hJab]) dataBySatker[key].push(p[hJab].toString());
+        });
+        let satkerConfigFiltered = selectedSatker === "ALL" ? satkerConfig : satkerConfig.filter(c => c.name === selectedSatker);
+        satkerConfigFiltered.forEach(cfg => {
+            let key = normalizeSatkerName(cfg.name);
+            let jabatanPegawai = dataBySatker[key] || [];
+            let requiredList = jabatanRequiredByTipe[cfg.tipe] || [];
+            requiredList.forEach(item => {
+                let isString = typeof item === 'string';
+                let isFilled;
+                if (isString) {
+                    if (KEPALA_KANTOR_TITLES.includes(item)) {
+                        let expected = normalizeText("Kepala " + cfg.name);
+                        isFilled = jabatanPegawai.some(j => normalizeText(j) === expected);
+                    } else {
+                        let target = normalizeText(item);
+                        isFilled = jabatanPegawai.some(j => normalizeText(extractJabatanCore(j)) === target);
+                    }
+                } else {
+                    let coreTarget = normalizeText(item.core);
+                    let extraTarget = normalizeText(item.extra);
+                    isFilled = jabatanPegawai.some(j => {
+                        let core = normalizeText(extractJabatanCore(j));
+                        let full = normalizeText(j);
+                        return core === coreTarget && full.includes(extraTarget);
+                    });
+                }
+                if (!isFilled) totalJabatanKosong++;
+            });
+        });
+    } catch (e) { /* referensi jabatan wajib belum siap, lewati */ }
+
+    // --- Render KPI Cards ---
+    const kpiGrid = document.getElementById('kpiGrid');
+    kpiGrid.innerHTML = `
+        <div class="kpi-card">
+            <div class="kpi-label">Total Pegawai</div>
+            <div class="kpi-value">${totalPegawai.toLocaleString('id-ID')}</div>
+            <div class="kpi-sub">${selectedSatker === "ALL" ? `Tersebar di ${satkerSet.size} satuan kerja` : selectedSatker}</div>
+        </div>
+        <div class="kpi-card accent-gold">
+            <div class="kpi-label">Laki-laki / Perempuan</div>
+            <div class="kpi-value">${jkCount.L || 0} / ${jkCount.P || 0}</div>
+            <div class="kpi-sub">Rasio jenis kelamin pegawai</div>
+        </div>
+        <div class="kpi-card accent-green">
+            <div class="kpi-label">Jabatan Struktural Terisi</div>
+            <div class="kpi-value">${strukturalCount.toLocaleString('id-ID')}</div>
+            <div class="kpi-sub">Memiliki data Eselon</div>
+        </div>
+        <div class="kpi-card accent-red">
+            <div class="kpi-label">Jabatan Struktural Kosong</div>
+            <div class="kpi-value">${totalJabatanKosong.toLocaleString('id-ID')}</div>
+            <div class="kpi-sub">Belum terisi (Eselon II–V)</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Pegawai Dikaryakan</div>
+            <div class="kpi-value">${dikaryakanCount.toLocaleString('id-ID')}</div>
+            <div class="kpi-sub">Status Pegawai: Dikaryakan</div>
+        </div>
+    `;
+
+    // --- Judul dinamis: ikut pilihan satker ---
+    let suffix = selectedSatker === 'ALL' ? 'Se Wilayah Aceh' : 'pada ' + prettySatker(selectedSatker);
+    let suffixHyphen = selectedSatker === 'ALL' ? 'Se-Wilayah Aceh' : 'pada ' + prettySatker(selectedSatker);
+    document.getElementById('titleJK').textContent = '👥 Komposisi Jenis Kelamin — Keseluruhan, Jaksa, TU ' + suffix;
+    document.getElementById('titleGol').textContent = '🎖️ Distribusi Golongan — Jaksa & TU ' + suffix;
+    document.getElementById('titlePend').textContent = '🎓 Jenjang Pendidikan — Jaksa & TU ' + suffix;
+    document.getElementById('titleSatker').textContent = '🏢 Jumlah Pegawai ' + suffixHyphen;
+
+    // Warna: biru muda = Laki-laki, merah muda = Perempuan. Border membedakan kelompok Jaksa / TU.
+    const COLOR_L = '#7ec8f7', COLOR_P = '#f7a8c4';
+    const BORDER_ALL = '#0a2540', BORDER_JAKSA = '#e08a00', BORDER_TU = '#1e8e5a';
+    const TEXT_DARK = '#1b2733';
+
+    // --- Chart: Jenis Kelamin (3 doughnut, total di tengah) ---
+    let jkGroups = ['Keseluruhan', 'Jaksa', 'TU'];
+    let jkCanvasByGroup = { Keseluruhan: 'chartJK_keseluruhan', Jaksa: 'chartJK_jaksa', TU: 'chartJK_tu' };
+    jkGroups.forEach(g => {
+        let total = jkRinci[g].L + jkRinci[g].P;
+        let bc = g === 'Jaksa' ? BORDER_JAKSA : (g === 'TU' ? BORDER_TU : BORDER_ALL);
+        drawChart(jkCanvasByGroup[g], 'doughnut', {
+            labels: ['Laki-laki', 'Perempuan'],
+            datasets: [{ data: [jkRinci[g].L, jkRinci[g].P], backgroundColor: [COLOR_L, COLOR_P], borderColor: bc, borderWidth: 4 }]
+        }, { cutout: '58%', plugins: { centerText: { text: total.toLocaleString('id-ID') } } });
+    });
+
+    // --- Chart: Golongan (1 bar chart; tiap golongan: bar Jaksa & bar TU, masing-masing dibagi L/P) ---
+    drawChart('chartGol', 'bar', {
+        labels: golOrder,
+        datasets: [
+            { label: 'Laki-laki (Jaksa)', stack: 'Jaksa', data: golOrder.map(g => golRinci.Jaksa.L[g] || 0), backgroundColor: COLOR_L, borderColor: BORDER_JAKSA, borderWidth: 3, borderSkipped: false, datalabels: { color: TEXT_DARK } },
+            { label: 'Perempuan (Jaksa)', stack: 'Jaksa', data: golOrder.map(g => golRinci.Jaksa.P[g] || 0), backgroundColor: COLOR_P, borderColor: BORDER_JAKSA, borderWidth: 3, borderSkipped: false, datalabels: { color: TEXT_DARK } },
+            { label: 'Laki-laki (TU)', stack: 'TU', data: golOrder.map(g => golRinci.TU.L[g] || 0), backgroundColor: COLOR_L, borderColor: BORDER_TU, borderWidth: 3, borderSkipped: false, datalabels: { color: TEXT_DARK } },
+            { label: 'Perempuan (TU)', stack: 'TU', data: golOrder.map(g => golRinci.TU.P[g] || 0), backgroundColor: COLOR_P, borderColor: BORDER_TU, borderWidth: 3, borderSkipped: false, datalabels: { color: TEXT_DARK } }
+        ]
+    }, {
+        datalabelsPosition: 'center',
+        scales: { x: { stacked: true }, y: { stacked: true, grace: '10%' } },
+        plugins: { legend: { display: true, position: 'bottom' }, stackLabel: { labels: ['Jaksa', 'TU'], pairs: [[0, 1], [2, 3]] } }
+    });
+
+    // --- Chart: Pendidikan (bar berkelompok Jaksa vs TU) ---
+    let pendOrder = ['S3', 'S2', 'S1', 'D3', 'SLTA'];
+    drawChart('chartPendidikan', 'bar', {
+        labels: pendOrder,
+        datasets: [
+            { label: 'Jaksa', data: pendOrder.map(k => pendRinci.Jaksa[k] || 0), backgroundColor: BORDER_JAKSA, borderColor: BORDER_JAKSA, borderWidth: 2 },
+            { label: 'TU', data: pendOrder.map(k => pendRinci.TU[k] || 0), backgroundColor: BORDER_TU, borderColor: BORDER_TU, borderWidth: 2 }
+        ]
+    }, { scales: { y: { grace: '10%' } }, plugins: { legend: { display: true, position: 'bottom' } } });
+
+    // --- Chart: Jumlah Pegawai per Satker (seluruh satker, bar horizontal bertumpuk L/P) ---
+    let satkerWrap = document.getElementById('chartSatkerWrap');
+    if (satkerWrap) satkerWrap.style.height = Math.max(180, satkerRows.length * 30 + 90) + 'px';
+    drawChart('chartSatker', 'bar', {
+        labels: satkerRows.map(r => abbreviateSatker(r[0])),
+        datasets: [
+            { label: 'Laki-laki', data: satkerRows.map(r => r[1].L), backgroundColor: COLOR_L, datalabels: { color: TEXT_DARK } },
+            { label: 'Perempuan', data: satkerRows.map(r => r[1].P), backgroundColor: COLOR_P, datalabels: { color: TEXT_DARK } }
+        ]
+    }, {
+        indexAxis: 'y',
+        datalabelsPosition: 'center',
+        scales: {
+            x: { stacked: true },
+            y: { stacked: true, ticks: { autoSkip: false, crossAlign: 'far', padding: 6 } }
+        },
+        plugins: { legend: { display: true, position: 'bottom' }, totalLabel: { totals: satkerRows.map(r => r[1].L + r[1].P) } }
+    });
+}
+
+// Ubah nama satker kapital ("KEJAKSAAN NEGERI BANDA ACEH") menjadi huruf kapital di awal kata
+function prettySatker(name) {
+    return (name || '').toString().trim().replace(/\s+/g, ' ').toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\bDi\b/g, 'di');
+}
+
+// Singkat nama satker agar tidak terpotong: Cabang Kejaksaan Negeri -> CKN, Kejaksaan Tinggi -> KT, Kejaksaan Negeri -> KN
+function abbreviateSatker(name) {
+    return prettySatker(name)
+        .replace(/^Cabang Kejaksaan Negeri\b/, 'CKN')
+        .replace(/^Kejaksaan Tinggi\b/, 'KT')
+        .replace(/^Kejaksaan Negeri\b/, 'KN');
+}
+
+// Plugin: lingkaran kecil berisi angka total di tengah doughnut
+const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw(chart) {
+        const opts = chart.options.plugins && chart.options.plugins.centerText;
+        if (!opts || opts.text === undefined) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || !meta.data[0]) return;
+        const arc = meta.data[0];
+        const cx = arc.x, cy = arc.y;
+        const r = Math.max(14, arc.innerRadius * 0.78);
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#0a2540';
+        ctx.stroke();
+        ctx.fillStyle = '#0a2540';
+        ctx.font = 'bold ' + Math.max(12, Math.round(r * 0.55)) + 'px Segoe UI, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(opts.text), cx, cy);
+        ctx.restore();
+    }
+};
+
+// Plugin: label "Jaksa"/"TU" di atas tiap bar bertumpuk pada chart golongan
+const stackLabelPlugin = {
+    id: 'stackLabel',
+    afterDatasetsDraw(chart) {
+        const opts = chart.options.plugins && chart.options.plugins.stackLabel;
+        if (!opts || !opts.pairs) return;
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.fillStyle = '#0a2540';
+        ctx.font = 'bold 10px Segoe UI, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        opts.pairs.forEach((pair, pi) => {
+            const metaTop = chart.getDatasetMeta(pair[pair.length - 1]);
+            const metaBase = chart.getDatasetMeta(pair[0]);
+            if (!metaTop || !metaTop.data) return;
+            metaTop.data.forEach((bar, i) => {
+                const v = (chart.data.datasets[pair[0]].data[i] || 0) + (chart.data.datasets[pair[1]].data[i] || 0);
+                if (v > 0) ctx.fillText(opts.labels[pi], bar.x, Math.min(bar.y, metaBase.data[i].y) - 3);
+            });
+        });
+        ctx.restore();
+    }
+};
+
+// Plugin: total jumlah pegawai di ujung kanan bar horizontal bertumpuk
+const totalLabelPlugin = {
+    id: 'totalLabel',
+    afterDatasetsDraw(chart) {
+        const opts = chart.options.plugins && chart.options.plugins.totalLabel;
+        if (!opts || !opts.totals) return;
+        const meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.fillStyle = '#0a2540';
+        ctx.font = 'bold 11px Segoe UI, Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        meta.data.forEach((bar, i) => ctx.fillText('= ' + opts.totals[i].toLocaleString('id-ID'), bar.x + 6, bar.y));
+        ctx.restore();
+    }
+};
+
+if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels, centerTextPlugin, stackLabelPlugin, totalLabelPlugin);
+}
+
+function drawChart(canvasId, type, data, extraOptions) {
+    let ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    extraOptions = extraOptions || {};
+    let isCircular = (type === 'doughnut' || type === 'pie');
+    let centered = isCircular || extraOptions.datalabelsPosition === 'center';
+    if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
+
+    let defaultPlugins = {
+        legend: { display: isCircular, position: 'bottom' },
+        datalabels: {
+            color: '#1b2733',
+            font: { weight: 'bold', size: 11 },
+            anchor: centered ? 'center' : 'end',
+            align: centered ? 'center' : (extraOptions.indexAxis === 'y' ? 'right' : 'top'),
+            formatter: (value) => value > 0 ? value.toLocaleString('id-ID') : ''
+        }
+    };
+    let defaultScales = isCircular ? {} : {
+        x: { beginAtZero: true, ticks: { precision: 0 } },
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+    };
+
+    // Gabungkan opsi per bagian (plugins & scales) supaya default tidak hilang
+    let { datalabelsPosition, plugins: extraPlugins, scales: extraScales, ...restOptions } = extraOptions;
+    let scales = {};
+    Object.keys(defaultScales).forEach(k => { scales[k] = Object.assign({}, defaultScales[k]); });
+    Object.keys(extraScales || {}).forEach(k => {
+        let merged = Object.assign({}, scales[k] || {}, extraScales[k]);
+        if (scales[k] && scales[k].ticks && extraScales[k].ticks) merged.ticks = Object.assign({}, scales[k].ticks, extraScales[k].ticks);
+        scales[k] = merged;
+    });
+
+    dashboardCharts[canvasId] = new Chart(ctx, {
+        type: type,
+        data: data,
+        options: Object.assign({
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: Object.assign({}, defaultPlugins, extraPlugins || {}),
+            scales: scales
+        }, restOptions)
+    });
+}
+
+function processWorkbook(wb, source) {
     let rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 
     pegawai = rawData.map(row => {
@@ -1498,15 +2318,11 @@ function processWorkbook(wb, source, realUpdateTime) {
     }) + (source ? " — sumber: " + source : "");
     localStorage.setItem('lastProcessDate', lastProcessDate);
 
-    // SIMPAN WAKTU EDIT ASLI SPREADSHEET (kalau sumbernya Apps Script menyediakannya)
-    if (realUpdateTime) {
-        sheetLastUpdated = realUpdateTime;
-        localStorage.setItem('sheetLastUpdated', sheetLastUpdated);
-    }
-
     generateListOrder();
     generateTableSelectors();
     loadColumnSettings();
+    updateHeaderDate();
+    renderDashboard();
 }
 
 document.getElementById('fileInput').onchange = function(e) {
@@ -1556,13 +2372,6 @@ function loadFromGSheet(manual) {
         return;
     }
     setGSheetStatus('⏳ Memuat data dari Google Sheets...', '#555');
-
-    // Jika sumbernya Web App Apps Script, pakai jalur JSON (bisa bawa waktu edit asli sekaligus)
-    if (isAppsScriptUrl(gsheetCsvUrl)) {
-        loadFromAppsScript(gsheetCsvUrl, manual);
-        return;
-    }
-
     let csvUrl = normalizeGSheetCsvUrl(gsheetCsvUrl);
 
     fetch(csvUrl)
@@ -1581,10 +2390,7 @@ function loadFromGSheet(manual) {
                 throw new Error('Sheet belum bisa diakses publik. Cek pengaturan Share → "Anyone with the link".');
             }
             let wb = XLSX.read(csvText, { type: 'string' });
-            // Link CSV biasa tidak membawa metadata waktu edit asli, jadi sheetLastUpdated dikosongkan
-            sheetLastUpdated = "";
-            localStorage.removeItem('sheetLastUpdated');
-            processWorkbook(wb, "Google Sheets (CSV)");
+            processWorkbook(wb, "Google Sheets");
             setGSheetStatus('✅ Data berhasil dimuat dari Google Sheets. ' + lastProcessDate, '#217346');
             if (manual) alert('Data berhasil dimuat dari Google Sheets!');
         })
@@ -1592,43 +2398,6 @@ function loadFromGSheet(manual) {
             let msg = err.message || 'Tidak diketahui';
             if (/Failed to fetch/i.test(msg)) msg = 'Gagal terhubung (kemungkinan diblokir CORS/jaringan, atau sheet belum publik).';
             setGSheetStatus('⚠️ Gagal memuat dari Google Sheets (' + msg + '). Menampilkan data tersimpan terakhir.', '#c00');
-        });
-}
-
-// Memuat data + waktu edit ASLI spreadsheet lewat Web App Apps Script (endpoint doGet
-// yang mengembalikan JSON: { lastUpdated, data }).
-function loadFromAppsScript(url, manual) {
-    fetch(url)
-        .then(res => {
-            if (!res.ok) throw new Error('HTTP ' + res.status + '. Cek kembali link deployment Apps Script.');
-            return res.json();
-        })
-        .then(json => {
-            if (!json || !Array.isArray(json.data)) {
-                throw new Error('Format respons Apps Script tidak dikenali (field "data" tidak ditemukan).');
-            }
-            let ws = XLSX.utils.aoa_to_sheet(json.data);
-            let wb = { SheetNames: ['Sheet1'], Sheets: { Sheet1: ws } };
-
-            let realUpdateTime = json.lastUpdated
-                ? new Date(json.lastUpdated).toLocaleString('id-ID', {
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                  })
-                : "";
-
-            processWorkbook(wb, "Google Sheets (Apps Script)", realUpdateTime);
-
-            setGSheetStatus(
-                '✅ Data berhasil dimuat.' +
-                (realUpdateTime ? ' Update terakhir spreadsheet: ' + realUpdateTime : ''),
-                '#217346'
-            );
-            if (manual) alert('Data berhasil dimuat dari Google Sheets!');
-        })
-        .catch(err => {
-            let msg = err.message || 'Tidak diketahui';
-            if (/Failed to fetch/i.test(msg)) msg = 'Gagal terhubung (kemungkinan CORS/jaringan, atau deployment belum diset "Anyone").';
-            setGSheetStatus('⚠️ Gagal memuat dari Apps Script (' + msg + '). Menampilkan data tersimpan terakhir.', '#c00');
         });
 }
 
@@ -1664,13 +2433,14 @@ window.onload = () => {
         
         // MENGAMBIL TANGGAL DARI STORAGE (Bukan membuat tanggal baru)
         lastProcessDate = localStorage.getItem('lastProcessDate') || "";
-        sheetLastUpdated = localStorage.getItem('sheetLastUpdated') || "";
-
+        
         generateListOrder();
         generateTableSelectors();
         loadColumnSettings();
     }
     showMode('list');
+    updateHeaderDate();
+    showSection('dashboard');
 
     // Jika link Google Sheets tersimpan, muat ulang data terbaru di latar belakang
     // (data lama dari cache tetap tampil dulu supaya aplikasi langsung bisa dipakai)
